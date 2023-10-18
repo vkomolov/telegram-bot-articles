@@ -3,13 +3,14 @@ const DBHandler = require("../DBHandler");
 
 const {
   get_regular_keyboard_markup, getRegularKeyboardKeys,
-  getRegularKeyboardObj, get_inline_keyboard_articles, getActionTypesArticles
+  getRegularKeyboardObj, get_inline_keyboard_articles, getActionTypes
 } = require("../../config");
 //const { handleMessages, handleQuery } = require("../../_handlers");
 const { splitArrBy, flattenObject } = require("../../_utils");
 
 const { token, specId, baseUrl } = process.env;
-const actionTypesArticles = getActionTypesArticles();
+const actionTypesArticles = getActionTypes().ARTICLES;
+const actionTypesActions = getActionTypes().ACTIONS;
 
 module.exports = class BotArticles {
   constructor() {
@@ -22,6 +23,7 @@ module.exports = class BotArticles {
     this.mainKeyboardMarkup = [];
     this.topicsKeyboardMarkup = [];
     this.regularKeys = getRegularKeyboardKeys();
+    //data for creating inline-keyboards for each article
     this.inlineKeyboardStore = {};
 
     this.handleMessage = this.handleMessage.bind(this);
@@ -39,8 +41,9 @@ module.exports = class BotArticles {
   }
 
   async handleRegularKey(chatId, userId, msgText) {
-    const {mainMenu, topicsMenu} = getRegularKeyboardObj();
+    const { mainMenu, topicsMenu } = getRegularKeyboardObj();
     const isSpec = userId.toString() === this._specId.toString();
+
     const actionsObj = {
       [mainMenu.articles]: async () => {
         await this.botHandler._sendMessage(chatId, "Выберите тему статей:", {
@@ -192,7 +195,9 @@ module.exports = class BotArticles {
       const chatId = query.message.chat.id.toString();
       const msgId = query.message.message_id;
       const data = JSON.parse(query.data);
-      const { tp, aId, ok } = data;
+      const actionType = data?.tp || null;
+      const articleId = data?.aId || null;
+      const isConfirmed = data?.ok || null; //true|false is confirmed... null - empty;
 
       log(data, "data: ");
 
@@ -267,14 +272,17 @@ module.exports = class BotArticles {
             await this.botHandler.getConfirmation(chatId, msgId, data);
           }
         },
+        [actionTypesActions.ACTION_CANCEL]: async (articleId) => {
+          await this.setDefaultInlineKeyboard(articleId, chatId, msgId);
+        }
       };
 
       /**
        * if data.type of callback_query is in actionTypesArticles,
        * then to handle callback_query from article inline_keyboard
        */
-      if (tp in actionTypesHandles) {
-        actionTypesHandles[tp](aId, ok);
+      if (actionType && actionType in actionTypesHandles) {
+        actionTypesHandles[actionType](articleId, isConfirmed);
       }
     }
     catch (e) {
@@ -284,7 +292,8 @@ module.exports = class BotArticles {
 
   async setDefaultInlineKeyboard (articleId, chatId, msgId, params={}) {
     const auxData = this._getInlineKeyboardData(articleId);
-    log(auxData, "auxData: ");
+
+    //log(auxData, "auxData: ");
 
     await this.botHandler._editMessageReplyMarkup({
       inline_keyboard: get_inline_keyboard_articles({

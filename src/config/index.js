@@ -6,7 +6,7 @@ module.exports = {
   get_regular_keyboard_markup,
   getRegularKeyboardKeys,
   getRegularKeyboardObj,
-  getActionTypesArticles,
+  getActionTypes,
   get_inline_keyboard_articles,
   getConfirmationMarkup
 };
@@ -21,20 +21,28 @@ const menuTypes = {
   }
 };
 
-function getActionTypesArticles () {
+function getActionTypes () {
   return {
-    ARTICLE_FAVORITE_ADD: "afa",
-    ARTICLE_FAVORITE_REMOVE: "afr",
-    ARTICLE_FAVORITE_TOGGLE: "aft",
-    ARTICLE_ADD: "aa",
-    ARTICLE_EDIT: "ae",
-    ARTICLE_DELETE: "ad",
+    ARTICLES: {
+      ARTICLE_FAVORITE_ADD: "afa",
+      ARTICLE_FAVORITE_REMOVE: "afr",
+      ARTICLE_FAVORITE_TOGGLE: "aft",
+      ARTICLE_ADD: "aa",
+      ARTICLE_EDIT: "ae",
+      ARTICLE_DELETE: "ad",
+    },
+    ACTIONS: {
+      ACTION_CANCEL: "acc"
+    }
   };
 }
 
 function getConfirmationMarkup(cb_data) {
+  const actionTypes = getActionTypes().ACTIONS;
 
-  log(cb_data, "cb_data: ");
+  log(cb_data, "cb_data in getConfirmationMarkup: ");
+
+  const { aId } = cb_data;
 
   return (
       [
@@ -45,7 +53,10 @@ function getConfirmationMarkup(cb_data) {
           },
           {
             text: "Отмена",
-            callback_data: "cancel"
+            callback_data: JSON.stringify({
+              tp: actionTypes.ACTION_CANCEL,
+              aId
+            })
           }
         ]
       ]
@@ -53,7 +64,7 @@ function getConfirmationMarkup(cb_data) {
 }
 
 function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
-  const actionTypes = getActionTypesArticles();
+  const actionTypes = getActionTypes().ARTICLES;
   const favText = isFav ? "Убрать из Избранного" : "Добавить в избранное";
   const callBackTypeFav = isFav ? actionTypes.ARTICLE_FAVORITE_REMOVE : actionTypes.ARTICLE_FAVORITE_ADD;
 

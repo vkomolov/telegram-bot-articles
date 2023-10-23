@@ -1,11 +1,12 @@
 const TelegramBot = require("node-telegram-bot-api");
 const { getConfirmationMarkup } = require("../../config");
 
+const { token, specId } = process.env;
+
 
 
 module.exports = class BotHandler {
-  constructor(token) {
-    this._token = token;
+  constructor() {
     this.bot = null;
     this.parse_mode = "Markdown"
   }
@@ -67,10 +68,9 @@ module.exports = class BotHandler {
     }
   }
 
-  async _sendArticle(chatId, article, isFav, params={}) {
+  async _sendArticle(chatId, article, params={}) {
     try {
-      const inline_keyboard = params?.inline_keyboard || [];
-
+      const reply_markup = params?.reply_markup || {};
 
       const articleHeading = `*Название статьи*: ${ article?.name || "Неизвестно..." } `;
       const articleDescription = `*Описание статьи*: ${ article?.description || "Отсутствует..." }`;
@@ -82,9 +82,7 @@ module.exports = class BotHandler {
       await this.bot.sendPhoto(chatId, picUrl, {
         caption: resMessage,
         parse_mode: this.parse_mode,
-        reply_markup: {
-          inline_keyboard
-        }
+        reply_markup
       })
     }
     catch (e) {
@@ -94,7 +92,7 @@ module.exports = class BotHandler {
 
   async initBot ({ handleMessage, handleQuery }) {
     try {
-      this.bot = await new TelegramBot(this._token, {
+      this.bot = await new TelegramBot(token, {
         //polling: true
         polling: {
           interval: 300,
@@ -117,7 +115,11 @@ module.exports = class BotHandler {
     }
   }
 
-  async greetUser ({ chatId, userName, userLastVisit, isSpec, mainKeyboardMarkup }) {
+  async welcomeUser ({ chatId, user, userLastVisit }, { reply_markup }) {
+    const { first_name, last_name, userId, language_code } = user;
+    const isSpec = userId.toString() === specId.toString();
+    const userName = `${ first_name } ${ last_name }`;
+
     const specMsg = isSpec
         ? `\nПоскольку Вы владелец, Вам даны дополнительные функции...`
         : ``;
@@ -129,18 +131,16 @@ module.exports = class BotHandler {
         : `Похоже, *${ userName }*, Вы у нас впервые!!! \nДобро пожаловать!!!
         \nЗдесь находится перечень ресурсов в виде интернет-ссылок, которые Вы можете выбрать для чтения...
         \nИли добавить ссылку в *Избранные* для чтения в будущем...
-        \nВ разделе *Избранные* Вы можете изучить ссылку или удалить ее...`;
+        \nВ разделе *Избранные* Вы можете изучить ссылку или удалить ее...
+        \nВыберите команду для начала работы:`;
 
 
     await this.bot.sendMessage(
         chatId,
-        `${ hello } \nВыберите команду для начала работы:`,
+        hello,
         {
           parse_mode: this.parse_mode,
-          reply_markup: {
-            keyboard: mainKeyboardMarkup,
-            resize_keyboard: true
-          }
+          reply_markup
         });
   }
 };

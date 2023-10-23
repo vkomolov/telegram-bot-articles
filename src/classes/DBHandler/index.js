@@ -6,9 +6,10 @@ const Article = require("../../models/article.model");
 const User = require("../../models/user.model");
 const Topic = require("../../models/topic.model");
 
+const { baseUrl } = process.env;
+
 module.exports = class DBHandler {
-  constructor(baseUrl) {
-    this._baseUrl = baseUrl;
+  constructor() {
     this._db = null;
     this.Article = Article;
     this.User = User;
@@ -17,7 +18,7 @@ module.exports = class DBHandler {
 
   async connectDb(options) {
     try {
-      this._db = await mongoose.connect(this._baseUrl, options);
+      this._db = await mongoose.connect(baseUrl, options);
 
       console.log("the database is connected...");
     }

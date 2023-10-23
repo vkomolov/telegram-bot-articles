@@ -8,16 +8,14 @@ const {
 //const { handleMessages, handleQuery } = require("../../_handlers");
 const { splitArrBy, flattenObject } = require("../../_utils");
 
-const { token, specId, baseUrl } = process.env;
+const { specId } = process.env;
 const actionTypesArticles = getActionTypes().ARTICLES;
 const actionTypesActions = getActionTypes().ACTIONS;
 
 module.exports = class BotArticles {
   constructor() {
-    this._specId = specId;
-
-    this.botHandler = new BotHandler(token, this._specId);
-    this.dbHandler = new DBHandler(baseUrl);
+    this.botHandler = new BotHandler();
+    this.dbHandler = new DBHandler();
 
     this.topicsCollection = [];
     this.mainKeyboardMarkup = [];
@@ -40,9 +38,9 @@ module.exports = class BotArticles {
     }
   }
 
-  async handleRegularKey(chatId, userId, msgText) {
+  async handleRegularKey(chatId, userId, msgId, msgText) {
     const { mainMenu, topicsMenu } = getRegularKeyboardObj();
-    const isSpec = userId.toString() === this._specId.toString();
+    const isSpec = userId.toString() === specId.toString();
 
     const actionsObj = {
       [mainMenu.articles]: async () => {
@@ -66,13 +64,15 @@ module.exports = class BotArticles {
               _id: articleId
             });
 
-            await this.botHandler._sendArticle(chatId, article, true, {
-              inline_keyboard: get_inline_keyboard_articles({
-                link: article.link,
-                articleId: article._id,
-                isFav: true,
-                isSpec
-              })
+            await this.botHandler._sendArticle(chatId, article,{
+              reply_markup: {
+                inline_keyboard: get_inline_keyboard_articles({
+                  link: article.link,
+                  articleId: article._id,
+                  isFav: true,
+                  isSpec
+                })
+              }
             })
 
           }
@@ -100,7 +100,7 @@ module.exports = class BotArticles {
       const msgId = msg.message_id; //for deleting previous messages
       const chatId = msg.chat.id.toString();
       const userId = msg.from.id.toString();
-      const isSpec = userId === this._specId;
+      const isSpec = userId === specId.toString();
 
       const { first_name, last_name, is_bot, language_code } = msg.from;
       const userName = `${ first_name } ${ last_name }`;
@@ -128,11 +128,15 @@ module.exports = class BotArticles {
           //log(user, "user updated: ");
         }
 
-        const mainKeyboardMarkup = this.mainKeyboardMarkup;
-        await this.botHandler.greetUser({ chatId, userName, userLastVisit, isSpec, mainKeyboardMarkup });
+        await this.botHandler.welcomeUser({ chatId, user, userLastVisit }, {
+          reply_markup: {
+            keyboard: this.mainKeyboardMarkup,
+            resize_keyboard: true
+          }
+        });
       }
       else if (this.regularKeys.includes(msg.text)) {
-        await this.handleRegularKey(chatId, userId, msg.text);
+        await this.handleRegularKey(chatId, userId, msgId, msg.text);
       }
       else {
         const topicsKeys = this.topicsCollection.map(({ name }) => name);
@@ -171,10 +175,12 @@ module.exports = class BotArticles {
                 ...params,
               };
 
-              await this.botHandler._sendArticle(chatId, article, isFav, {
-                inline_keyboard: get_inline_keyboard_articles({
-                  ...params,
-                }),
+              await this.botHandler._sendArticle(chatId, article, {
+                reply_markup: {
+                  inline_keyboard: get_inline_keyboard_articles({
+                    ...params,
+                  }),
+                }
               })
             }
           }

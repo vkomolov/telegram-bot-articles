@@ -31,6 +31,13 @@ function getActionTypes () {
       ARTICLE_EDIT: "ae",
       ARTICLE_DELETE: "ad",
     },
+    ADD_ARTICLE: {
+      ADD_ARTICLE_NAME: "AAN",
+      ADD_ARTICLE_TYPEID: "AAT",
+      ADD_ARTICLE_DESCRIPTION: "AAD",
+      ADD_ARTICLE_LINK: "AAL",
+      ADD_ARTICLE_RATE: "AAR",
+    },
     ACTIONS: {
       ACTION_CANCEL: "acc"
     }
@@ -85,6 +92,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
       },
     ],
   ];
+
 
   const specInlineKeyboardMarkup = [
     [

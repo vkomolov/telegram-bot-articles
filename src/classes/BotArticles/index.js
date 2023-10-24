@@ -9,8 +9,7 @@ const {
 const { splitArrBy, flattenObject } = require("../../_utils");
 
 const { specId } = process.env;
-const actionTypesArticles = getActionTypes().ARTICLES;
-const actionTypesActions = getActionTypes().ACTIONS;
+const { ARTICLES, ADD_ARTICLE } = getActionTypes();
 
 module.exports = class BotArticles {
   constructor() {
@@ -22,18 +21,19 @@ module.exports = class BotArticles {
     this.topicsKeyboardMarkup = [];
     this.regularKeys = getRegularKeyboardKeys();
     //data for creating inline-keyboards for each article
-    this.inlineKeyboardStore = {};
+    this.articlesInlineKeyboardParams = {};
 
     this.handleMessage = this.handleMessage.bind(this);
     this.handleQuery = this.handleQuery.bind(this);
   }
 ///END OF CONSTRUCTOR
 
-  _getInlineKeyboardData (articleId) {
-    if (articleId in this.inlineKeyboardStore) {
-      return this.inlineKeyboardStore[articleId];
+  _getInlineKeyboardData (userId, articleId) {
+    if (userId in this.articlesInlineKeyboardParams) {
+      const userArticles = this.articlesInlineKeyboardParams[userId];
+      return userArticles.get(articleId);
     } else {
-      console.error(`the articleId ${articleId} is not found...`);
+      console.error(`the articleId ${articleId} is not found in the store...`);
       return null;
     }
   }
@@ -103,7 +103,6 @@ module.exports = class BotArticles {
       const isSpec = userId === specId.toString();
 
       const { first_name, last_name, is_bot, language_code } = msg.from;
-      const userName = `${ first_name } ${ last_name }`;
 
       ////CONDITIONS
       if (msg.text.startsWith("/start")) {
@@ -163,17 +162,22 @@ module.exports = class BotArticles {
           if (collectionArticles.length) {
             for (const article of collectionArticles) {
               const isFav = userFavorites.includes(article._id);
+              const articleId = article._id.toString();
 
               const params = {
                 link: article.link,
-                articleId: article._id,
+                articleId,
                 isFav,
                 isSpec
               };
 
-              this.inlineKeyboardStore[article._id] = {
-                ...params,
-              };
+
+
+              if (!this.articlesInlineKeyboardParams[userId]) {
+                this.articlesInlineKeyboardParams[userId] = new Map();
+              }
+
+              this.articlesInlineKeyboardParams[userId].set(articleId, params);
 
               await this.botHandler._sendArticle(chatId, article, {
                 reply_markup: {
@@ -197,9 +201,10 @@ module.exports = class BotArticles {
 
   async handleQuery(query) {
     try {
-      const userId = query.from.id;
+      const userId = query.from.id.toString();
       const chatId = query.message.chat.id.toString();
-      const msgId = query.message.message_id;
+      const msgId = query.message.message_id.toString();
+
       const data = JSON.parse(query.data);
       const actionType = data?.tp || null;
       const articleId = data?.aId || null;
@@ -208,9 +213,9 @@ module.exports = class BotArticles {
       log(data, "data: ");
 
       const actionTypesHandles = {
-        [actionTypesArticles.ARTICLE_FAVORITE_ADD]: async (articleId, isConfirmed) => {
+        [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
           if (isConfirmed) {
-            await this.setDefaultInlineKeyboard(articleId, chatId, msgId, {
+            await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId, {
               isFav: true,
             });
 
@@ -229,12 +234,12 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, data);
+            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
           }
         },
-        [actionTypesArticles.ARTICLE_FAVORITE_REMOVE]: async (articleId, isConfirmed) => {
+        [ARTICLES.ARTICLE_FAVORITE_REMOVE]: async () => {
           if (isConfirmed) {
-            await this.setDefaultInlineKeyboard(articleId, chatId, msgId, {
+            await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId,{
               isFav: false,
             });
 
@@ -253,38 +258,38 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, data);
+            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
           }
 
         },
-        [actionTypesArticles.ARTICLE_ADD]: async () => {
+        [ARTICLES.ARTICLE_ADD]: async () => {
           log("ARTICLE_ADD...");
 
         },
-        [actionTypesArticles.ARTICLE_DELETE]: async (articleId, isConfirmed) => {
+        [ARTICLES.ARTICLE_DELETE]: async () => {
           if (isConfirmed) {
             log("ARTICLE_DELETE confirmed...");
 
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, data);
+            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
           }
         },
-        [actionTypesArticles.ARTICLE_EDIT]: async (articleId, isConfirmed) => {
+        [ARTICLES.ARTICLE_EDIT]: async () => {
           if (isConfirmed) {
             log("ARTICLE_EDIT confirmed...");
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, data);
+            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
           }
         },
-        [actionTypesActions.ACTION_CANCEL]: async (articleId) => {
-          await this.setDefaultInlineKeyboard(articleId, chatId, msgId);
+        [ARTICLES.ARTICLE_CANCEL]: async () => {
+          await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId);
         }
       };
 
       /**
-       * if data.type of callback_query is in actionTypesArticles,
+       * if data.type of callback_query is in ARTICLES,
        * then to handle callback_query from article inline_keyboard
        */
       if (actionType && actionType in actionTypesHandles) {
@@ -296,10 +301,8 @@ module.exports = class BotArticles {
     }
   }
 
-  async setDefaultInlineKeyboard (articleId, chatId, msgId, params={}) {
-    const auxData = this._getInlineKeyboardData(articleId);
-
-    //log(auxData, "auxData: ");
+  async setDefaultInlineKeyboard (articleId, chatId, msgId, userId, params={}) {
+    const auxData = this._getInlineKeyboardData(userId, articleId);
 
     await this.botHandler._editMessageReplyMarkup({
       inline_keyboard: get_inline_keyboard_articles({

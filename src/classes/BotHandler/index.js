@@ -3,6 +3,11 @@ const { getConfirmationMarkup } = require("../../config");
 
 const { token, specId } = process.env;
 
+const dictBotHandler = {
+  "ru": "русский",
+  "ua": "українська",
+  "en": "english"
+};
 
 
 module.exports = class BotHandler {
@@ -28,7 +33,7 @@ module.exports = class BotHandler {
     }
   }
 
-  async getConfirmation (chatId, msgId, callback_data) {
+  async getConfirmation (chatId, msgId, userId, callback_data) {
     try {
       const confirmed = {
         ...callback_data,
@@ -37,7 +42,7 @@ module.exports = class BotHandler {
 
       await this._editMessageReplyMarkup({
         inline_keyboard: [
-            ...getConfirmationMarkup(confirmed)
+            ...getConfirmationMarkup(userId, confirmed)
         ]
       }, {
         chat_id: chatId,
@@ -121,14 +126,16 @@ module.exports = class BotHandler {
     const userName = `${ first_name } ${ last_name }`;
 
     const specMsg = isSpec
-        ? `\nПоскольку Вы владелец, Вам даны дополнительные функции...`
+        ? `Поскольку Вы владелец, Вам даны дополнительные функции...`
         : ``;
 
     const hello = userLastVisit
-        ? `С возвращением, *${ userName }*! 
+        ? `С возвращением, *${ userName }*!
+        \nЯзык Вашей системы: *${ dictBotHandler[language_code] }*
         \nВы отсутствовали ${ ((Date.now() - userLastVisit) / 1000 / 60).toFixed(1) } мин.
-        ${ specMsg }`
+        \n${ specMsg }`
         : `Похоже, *${ userName }*, Вы у нас впервые!!! \nДобро пожаловать!!!
+        \nЯзык Вашей системы: *${ dictBotHandler[language_code] }*
         \nЗдесь находится перечень ресурсов в виде интернет-ссылок, которые Вы можете выбрать для чтения...
         \nИли добавить ссылку в *Избранные* для чтения в будущем...
         \nВ разделе *Избранные* Вы можете изучить ссылку или удалить ее...

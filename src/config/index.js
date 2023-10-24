@@ -1,6 +1,5 @@
 const { flattenObject, getBytesLength } = require("../_utils");
 
-
 module.exports = {
   getBotCredentials,
   get_regular_keyboard_markup,
@@ -11,25 +10,40 @@ module.exports = {
   getConfirmationMarkup
 };
 
+//TODO: multiple languages...
+const keyboardKeys = {
+  articles: "Статьи",
+  favorite: "Избранное",
+  back: "На Главную",
+  deleteFromFaforites: "Убрать из Избранного",
+  addToFaforites: "Добавить в избранное",
+  followLink: "Перейти по ссылке",
+  confirm: "Подтвердить",
+  cancel: "Отмена",
+  edit: "Редактировать",
+  delete: "Удалить",
+};
+
 const menuTypes = {
   mainMenu: {
-    articles: "Статьи",
-    favorite: "Избранное"
+    articles: keyboardKeys.articles,
+    favorite: keyboardKeys.favorite
   },
   topicsMenu: {
-    back: "На Главную"
+    back: keyboardKeys.back
   }
 };
 
 function getActionTypes () {
   return {
     ARTICLES: {
-      ARTICLE_FAVORITE_ADD: "afa",
-      ARTICLE_FAVORITE_REMOVE: "afr",
-      ARTICLE_FAVORITE_TOGGLE: "aft",
-      ARTICLE_ADD: "aa",
-      ARTICLE_EDIT: "ae",
-      ARTICLE_DELETE: "ad",
+      ARTICLE_FAVORITE_ADD: "AFA",
+      ARTICLE_FAVORITE_REMOVE: "AFR",
+      ARTICLE_FAVORITE_TOGGLE: "AFT",
+      ARTICLE_ADD: "AA",
+      ARTICLE_EDIT: "AE",
+      ARTICLE_DELETE: "AD",
+      ARTICLE_CANCEL: "AC",
     },
     ADD_ARTICLE: {
       ADD_ARTICLE_NAME: "AAN",
@@ -37,32 +51,28 @@ function getActionTypes () {
       ADD_ARTICLE_DESCRIPTION: "AAD",
       ADD_ARTICLE_LINK: "AAL",
       ADD_ARTICLE_RATE: "AAR",
-    },
-    ACTIONS: {
-      ACTION_CANCEL: "acc"
+      ADD_ARTICLE_CANCEL: "AAC",
     }
   };
 }
 
-function getConfirmationMarkup(cb_data) {
-  const actionTypes = getActionTypes().ACTIONS;
-
-  log(cb_data, "cb_data in getConfirmationMarkup: ");
-
+function getConfirmationMarkup(userId, cb_data) {
+  const { ARTICLES } = getActionTypes();
   const { aId } = cb_data;
 
   return (
       [
         [
           {
-            text: "Подтвердить",
+            text: keyboardKeys.confirm,
             callback_data: JSON.stringify(cb_data)
           },
           {
-            text: "Отмена",
+            text: keyboardKeys.cancel,
             callback_data: JSON.stringify({
-              tp: actionTypes.ACTION_CANCEL,
-              aId
+              tp: ARTICLES.ARTICLE_CANCEL,
+              uId: userId,
+              aId,
             })
           }
         ]
@@ -72,7 +82,7 @@ function getConfirmationMarkup(cb_data) {
 
 function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
   const actionTypes = getActionTypes().ARTICLES;
-  const favText = isFav ? "Убрать из Избранного" : "Добавить в избранное";
+  const favText = isFav ? keyboardKeys.deleteFromFaforites : keyboardKeys.addToFaforites;
   const callBackTypeFav = isFav ? actionTypes.ARTICLE_FAVORITE_REMOVE : actionTypes.ARTICLE_FAVORITE_ADD;
 
 
@@ -87,7 +97,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
         })
       },
       {
-        text: "Перейти по ссылке",
+        text: keyboardKeys.followLink,
         url: link
       },
     ],
@@ -97,7 +107,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
   const specInlineKeyboardMarkup = [
     [
       {
-        text: "Edit",
+        text: keyboardKeys.edit,
         callback_data: JSON.stringify({
           tp: actionTypes.ARTICLE_EDIT,
           aId: articleId,
@@ -105,7 +115,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
         })
       },
       {
-        text: "Delete",
+        text: keyboardKeys.delete,
         callback_data: JSON.stringify({
           tp: actionTypes.ARTICLE_DELETE,
           aId: articleId,

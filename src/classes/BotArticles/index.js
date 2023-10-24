@@ -21,7 +21,7 @@ module.exports = class BotArticles {
     this.topicsKeyboardMarkup = [];
     this.regularKeys = getRegularKeyboardKeys();
     //data for creating inline-keyboards for each article
-    this.articlesInlineKeyboardParams = {};
+    this.userCash = {};
 
     this.handleMessage = this.handleMessage.bind(this);
     this.handleQuery = this.handleQuery.bind(this);
@@ -29,8 +29,8 @@ module.exports = class BotArticles {
 ///END OF CONSTRUCTOR
 
   _getInlineKeyboardData (userId, articleId) {
-    if (userId in this.articlesInlineKeyboardParams) {
-      const userArticles = this.articlesInlineKeyboardParams[userId];
+    if (userId in this.userCash) {
+      const userArticles = this.userCash[userId].articlesInlineKBParams; //returns Map
       return userArticles.get(articleId);
     } else {
       console.error(`the articleId ${articleId} is not found in the store...`);
@@ -47,6 +47,7 @@ module.exports = class BotArticles {
         await this.botHandler._sendMessage(chatId, "Выберите тему статей:", {
           reply_markup: {
             keyboard: this.topicsKeyboardMarkup,
+            resize_keyboard: true
           }
         })
       },
@@ -86,6 +87,7 @@ module.exports = class BotArticles {
         await this.botHandler._sendMessage(chatId, "На главное меню:", {
           reply_markup: {
             keyboard: this.mainKeyboardMarkup,
+            resize_keyboard: true
           }
         })
       }
@@ -97,7 +99,7 @@ module.exports = class BotArticles {
 
   async handleMessage(msg) {
     try {
-      const msgId = msg.message_id; //for deleting previous messages
+      const msgId = msg.message_id;
       const chatId = msg.chat.id.toString();
       const userId = msg.from.id.toString();
       const isSpec = userId === specId.toString();
@@ -162,7 +164,7 @@ module.exports = class BotArticles {
           if (collectionArticles.length) {
             for (const article of collectionArticles) {
               const isFav = userFavorites.includes(article._id);
-              const articleId = article._id.toString();
+              const articleId = article._id.toString();  //converting from ObjectId()
 
               const params = {
                 link: article.link,
@@ -171,13 +173,13 @@ module.exports = class BotArticles {
                 isSpec
               };
 
-
-
-              if (!this.articlesInlineKeyboardParams[userId]) {
-                this.articlesInlineKeyboardParams[userId] = new Map();
+              if (!this.userCash[userId]) {
+                this.userCash[userId] = {
+                  articlesInlineKBParams: new Map()
+                }
               }
 
-              this.articlesInlineKeyboardParams[userId].set(articleId, params);
+              this.userCash[userId].articlesInlineKBParams.set(articleId, params);
 
               await this.botHandler._sendArticle(chatId, article, {
                 reply_markup: {
@@ -215,6 +217,7 @@ module.exports = class BotArticles {
       const actionTypesHandles = {
         [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
           if (isConfirmed) {
+            //deleting cashed inline_keyboard data...
             await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId, {
               isFav: true,
             });
@@ -234,7 +237,7 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
+            await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
           }
         },
         [ARTICLES.ARTICLE_FAVORITE_REMOVE]: async () => {
@@ -258,7 +261,7 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
+            await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
           }
 
         },
@@ -272,7 +275,7 @@ module.exports = class BotArticles {
 
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
+            await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
           }
         },
         [ARTICLES.ARTICLE_EDIT]: async () => {
@@ -280,7 +283,7 @@ module.exports = class BotArticles {
             log("ARTICLE_EDIT confirmed...");
           }
           else {
-            await this.botHandler.getConfirmation(chatId, msgId, userId, data);
+            await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
           }
         },
         [ARTICLES.ARTICLE_CANCEL]: async () => {

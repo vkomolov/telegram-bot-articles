@@ -33,7 +33,7 @@ module.exports = class BotHandler {
     }
   }
 
-  async getConfirmation (chatId, msgId, userId, callback_data) {
+  async confirmArticleAction (chatId, msgId, userId, callback_data) {
     try {
       const { ARTICLES } = getActionTypes();
       //giving confirm status

@@ -56,24 +56,20 @@ function getActionTypes () {
   };
 }
 
-function getConfirmationMarkup(userId, cb_data) {
+function getConfirmationMarkup(userId, cb_dataTrue, cb_dataFalse) {
   const { ARTICLES } = getActionTypes();
-  const { aId } = cb_data;
+  const { aId } = cb_dataTrue;
 
   return (
       [
         [
           {
             text: keyboardKeys.confirm,
-            callback_data: JSON.stringify(cb_data)
+            callback_data: JSON.stringify(cb_dataTrue)
           },
           {
             text: keyboardKeys.cancel,
-            callback_data: JSON.stringify({
-              tp: ARTICLES.ARTICLE_CANCEL,
-              uId: userId,
-              aId,
-            })
+            callback_data: JSON.stringify(cb_dataFalse)
           }
         ]
       ]

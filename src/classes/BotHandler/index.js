@@ -1,5 +1,5 @@
 const TelegramBot = require("node-telegram-bot-api");
-const { getConfirmationMarkup } = require("../../config");
+const { getConfirmationMarkup, getActionTypes } = require("../../config");
 
 const { token, specId } = process.env;
 
@@ -35,14 +35,24 @@ module.exports = class BotHandler {
 
   async getConfirmation (chatId, msgId, userId, callback_data) {
     try {
-      const confirmed = {
+      const { ARTICLES } = getActionTypes();
+      //giving confirm status
+      const cbDataTrue = {
         ...callback_data,
         "ok": true
       };
 
+      const { aId } = cbDataTrue;
+
+      const cbDataFalse = {
+        tp: ARTICLES.ARTICLE_CANCEL,
+        uId: userId,
+        aId,
+      };
+
       await this._editMessageReplyMarkup({
         inline_keyboard: [
-            ...getConfirmationMarkup(userId, confirmed)
+            ...getConfirmationMarkup(userId, cbDataTrue, cbDataFalse)
         ]
       }, {
         chat_id: chatId,

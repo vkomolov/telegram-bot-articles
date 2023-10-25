@@ -17,7 +17,6 @@ module.exports = class BotArticles {
     this.dbHandler = new DBHandler();
 
     this.topicsCollection = [];
-    this.mainKeyboardMarkup = [];
     this.topicsKeyboardMarkup = [];
     this.regularKeys = getRegularKeyboardKeys();
     //data for creating inline-keyboards for each article
@@ -89,7 +88,7 @@ module.exports = class BotArticles {
       [topicsMenu.back]: async () => {
         await this.botHandler._sendMessage(chatId, "На главное меню:", {
           reply_markup: {
-            keyboard: this.mainKeyboardMarkup,
+            keyboard: get_regular_keyboard_markup(isSpec, "mainMenu"),
             resize_keyboard: true
           }
         })
@@ -134,7 +133,7 @@ module.exports = class BotArticles {
 
         await this.botHandler.welcomeUser({ chatId, user, userLastVisit }, {
           reply_markup: {
-            keyboard: get_regular_keyboard_markup(isSpec).mainMenu,
+            keyboard: get_regular_keyboard_markup(isSpec, "mainMenu"),
             resize_keyboard: true
           }
         });
@@ -349,9 +348,6 @@ module.exports = class BotArticles {
       const topicsKeys = this.topicsCollection.map(({ name }) => name);
       const topicsKeyboardMarkupUpdate = splitArrBy(topicsKeys, 2);
 
-      this.mainKeyboardMarkup = this.mainKeyboardMarkup.concat([
-        ...regularKeyboardMarkup.mainMenu
-      ]);
       this.topicsKeyboardMarkup = this.topicsKeyboardMarkup.concat([
         ...topicsKeyboardMarkupUpdate,
         ...regularKeyboardMarkup.topicsMenu

@@ -13,6 +13,7 @@ module.exports = {
 //TODO: multiple languages...
 const keyboardKeys = {
   articles: "Статьи",
+  articleAdd: "Добавить ресурс",
   favorite: "Избранное",
   back: "На Главную",
   deleteFromFaforites: "Убрать из Избранного",
@@ -27,6 +28,7 @@ const keyboardKeys = {
 const menuTypes = {
   mainMenu: {
     articles: keyboardKeys.articles,
+    articleAdd: keyboardKeys.articleAdd,
     favorite: keyboardKeys.favorite
   },
   topicsMenu: {
@@ -82,7 +84,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
   const callBackTypeFav = isFav ? actionTypes.ARTICLE_FAVORITE_REMOVE : actionTypes.ARTICLE_FAVORITE_ADD;
 
 
-  const generalInlineKeyboardMarkup = [
+  const regularInlineKeyboardMarkup = [
     [
       {
         text: favText,
@@ -98,7 +100,6 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
       },
     ],
   ];
-
 
   const specInlineKeyboardMarkup = [
     [
@@ -121,7 +122,12 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
     ]
   ];
 
-  return isSpec ? generalInlineKeyboardMarkup.concat(specInlineKeyboardMarkup) : generalInlineKeyboardMarkup;
+  return isSpec ? regularInlineKeyboardMarkup.concat(specInlineKeyboardMarkup) : regularInlineKeyboardMarkup;
+}
+
+function get_inline_keyboard_articles_add () {
+  const actionTypes = getActionTypes().ADD_ARTICLE;
+
 }
 
 function getRegularKeyboardObj(prop = null) {
@@ -132,8 +138,9 @@ function getRegularKeyboardKeys() {
   return flattenObject(menuTypes);
 }
 
-function get_regular_keyboard_markup (prop = null) {
+function get_regular_keyboard_markup (isSpec = false, prop = null) {
   const { mainMenu, topicsMenu } = menuTypes;
+
   const markup = {
     "mainMenu": [
       [mainMenu.articles],
@@ -143,6 +150,10 @@ function get_regular_keyboard_markup (prop = null) {
       [topicsMenu.back]
     ],
   };
+
+  if (isSpec) {
+    markup.mainMenu[0].push(mainMenu.articleAdd);
+  }
 
   return prop && prop in markup ? markup[prop] : markup;
 }

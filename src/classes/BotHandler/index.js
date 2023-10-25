@@ -136,7 +136,7 @@ module.exports = class BotHandler {
     const userName = `${ first_name } ${ last_name }`;
 
     const specMsg = isSpec
-        ? `Поскольку Вы владелец, Вам даны дополнительные функции...`
+        ? `Поскольку Вы владелец, Вам даны дополнительные функции *добавления*, *удаления* и *редакции ресурсов* в списке`
         : ``;
 
     const hello = userLastVisit

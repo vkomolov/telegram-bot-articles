@@ -51,6 +51,9 @@ module.exports = class BotArticles {
           }
         })
       },
+      [mainMenu.articleAdd]: async () => {
+        log("articleAdd ...");
+      },
       [mainMenu.favorite]: async () => {
         const user = await this.dbHandler.getDocumentByProp(
             "User",
@@ -131,7 +134,7 @@ module.exports = class BotArticles {
 
         await this.botHandler.welcomeUser({ chatId, user, userLastVisit }, {
           reply_markup: {
-            keyboard: this.mainKeyboardMarkup,
+            keyboard: get_regular_keyboard_markup(isSpec).mainMenu,
             resize_keyboard: true
           }
         });

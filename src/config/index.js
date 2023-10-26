@@ -1,13 +1,16 @@
-const { flattenObject, getBytesLength } = require("../_utils");
+const { flattenObject, getBytesLength, splitArrBy } = require("../_utils");
 
 module.exports = {
   getBotCredentials,
   get_regular_keyboard_markup,
   getRegularKeyboardKeys,
   getRegularKeyboardObj,
+  getMenuTypes,
   getActionTypes,
   get_inline_keyboard_articles,
-  getConfirmationMarkup
+  get_inline_keyboard_articles_add,
+  get_inline_keyboard_topics,
+  getConfirmationMarkup,
 };
 
 //TODO: multiple languages...
@@ -15,14 +18,19 @@ const keyboardKeys = {
   articles: "Статьи",
   articleAdd: "Добавить ресурс",
   favorite: "Избранное",
-  back: "На Главную",
+  back: "Назад",
   deleteFromFaforites: "Убрать из Избранного",
   addToFaforites: "Добавить в избранное",
   followLink: "Перейти по ссылке",
   confirm: "Подтвердить",
   cancel: "Отмена",
+  submit: "Готово",
   edit: "Редактировать",
   delete: "Удалить",
+  addArticleName: "Название статьи",
+  addArticleTypeId: "Тема статьи",
+  addArticleDescription: "Описание статьи",
+  addArticleLink: "Ссылка на ресурс"
 };
 
 const menuTypes = {
@@ -33,10 +41,22 @@ const menuTypes = {
   },
   topicsMenu: {
     back: keyboardKeys.back
+  },
+  addArticleMenu: {
+    addArticleName: keyboardKeys.addArticleName,
+    addArticleTypeId: keyboardKeys.addArticleTypeId,
+    addArticleDescription: keyboardKeys.addArticleDescription,
+    addArticleLink: keyboardKeys.addArticleLink,
+    cancel: keyboardKeys.cancel,
+    submit: keyboardKeys.submit,
   }
 };
 
-function getActionTypes () {
+function getMenuTypes() {
+  return menuTypes;
+}
+
+function getActionTypes() {
   return {
     ARTICLES: {
       ARTICLE_FAVORITE_ADD: "AFA",
@@ -50,10 +70,13 @@ function getActionTypes () {
     ADD_ARTICLE: {
       ADD_ARTICLE_NAME: "AAN",
       ADD_ARTICLE_TYPEID: "AAT",
+      ADD_ARTICLE_TYPEID_GET: "AATG",
+      ADD_ARTICLE_TYPEID_CANCEL: "AATC",
       ADD_ARTICLE_DESCRIPTION: "AAD",
       ADD_ARTICLE_LINK: "AAL",
       ADD_ARTICLE_RATE: "AAR",
       ADD_ARTICLE_CANCEL: "AAC",
+      ADD_ARTICLE_SUBMIT: "AAS",
     }
   };
 }
@@ -78,10 +101,10 @@ function getConfirmationMarkup(userId, cb_dataTrue, cb_dataFalse) {
   );
 }
 
-function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
-  const actionTypes = getActionTypes().ARTICLES;
+function get_inline_keyboard_articles({ link, articleId, isFav, isSpec }) {
+  const { ARTICLES } = getActionTypes();
   const favText = isFav ? keyboardKeys.deleteFromFaforites : keyboardKeys.addToFaforites;
-  const callBackTypeFav = isFav ? actionTypes.ARTICLE_FAVORITE_REMOVE : actionTypes.ARTICLE_FAVORITE_ADD;
+  const callBackTypeFav = isFav ? ARTICLES.ARTICLE_FAVORITE_REMOVE : ARTICLES.ARTICLE_FAVORITE_ADD;
 
 
   const regularInlineKeyboardMarkup = [
@@ -106,7 +129,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
       {
         text: keyboardKeys.edit,
         callback_data: JSON.stringify({
-          tp: actionTypes.ARTICLE_EDIT,
+          tp: ARTICLES.ARTICLE_EDIT,
           aId: articleId,
           ok: false,
         })
@@ -114,7 +137,7 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
       {
         text: keyboardKeys.delete,
         callback_data: JSON.stringify({
-          tp: actionTypes.ARTICLE_DELETE,
+          tp: ARTICLES.ARTICLE_DELETE,
           aId: articleId,
           ok: false,
         })
@@ -125,9 +148,86 @@ function get_inline_keyboard_articles ({ link, articleId, isFav, isSpec }) {
   return isSpec ? regularInlineKeyboardMarkup.concat(specInlineKeyboardMarkup) : regularInlineKeyboardMarkup;
 }
 
-function get_inline_keyboard_articles_add () {
-  const actionTypes = getActionTypes().ADD_ARTICLE;
+function get_inline_keyboard_articles_add() {
+  const { ADD_ARTICLE } = getActionTypes();
+  const menuKeys = menuTypes.addArticleMenu;
 
+  return [
+    [
+      {
+        text: menuKeys.addArticleName,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_NAME,
+        })
+      },
+      {
+        text: menuKeys.addArticleTypeId,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID
+        })
+      },
+    ],
+    [
+      {
+        text: menuKeys.addArticleDescription,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_DESCRIPTION
+        })
+      },
+      {
+        text: menuKeys.addArticleLink,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_LINK
+        })
+      },
+    ],
+    [
+      {
+        text: menuKeys.submit,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_SUBMIT
+        })
+      },
+      {
+        text: menuKeys.cancel,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_CANCEL
+        })
+      }
+    ]
+  ];
+}
+
+function get_inline_keyboard_topics(topicsDataArr) {
+  //const topicsArr = splitArrBy(topicsData, 2);
+  const { ADD_ARTICLE } = getActionTypes();
+  const { topicsMenu, addArticleMenu } = getMenuTypes();
+
+  const topicsDataArrInline = topicsDataArr.map(topicData => ({
+    text: topicData.name,
+    callback_data: JSON.stringify({
+      tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_GET,
+      tt: topicData.typeId
+    }),
+  }));
+
+  topicsDataArrInline.push(
+    {
+      text: topicsMenu.back,
+      callback_data: JSON.stringify({
+        tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_CANCEL,
+      })
+    }
+  );
+
+  log(topicsDataArrInline, "topicsDataArrInline: ");
+
+  const markup = splitArrBy(topicsDataArrInline, 2);
+  log(markup, "markup: ");
+
+  //_id, name, typeId
+
+  return markup;
 }
 
 function getRegularKeyboardObj(prop = null) {
@@ -138,7 +238,7 @@ function getRegularKeyboardKeys() {
   return flattenObject(menuTypes);
 }
 
-function get_regular_keyboard_markup (isSpec = false, prop = null) {
+function get_regular_keyboard_markup(isSpec = false, prop = null) {
   const { mainMenu, topicsMenu } = menuTypes;
 
   const markup = {
@@ -158,16 +258,12 @@ function get_regular_keyboard_markup (isSpec = false, prop = null) {
   return prop && prop in markup ? markup[prop] : markup;
 }
 
-function getBotCredentials () {
+function getBotCredentials() {
   return {
     botName: "MasterCityCat",
     username: "RocketsDevBot",
   }
 }
-
-
-
-
 
 
 ///////////DEV

@@ -16,22 +16,11 @@ const articleSchema = new Schema(
         type: String,
         required: true
       },
-      picture: {
-        type: String,
-        required: true,
-      },
       link: {
         type: String,
         required: true,
       },
       rate: Number,
-      viewed: {
-        type: [{
-          accountId: String,
-          lastViewedDate: Number
-        }],
-        default: []
-      }
     },
     //{ statics: Object.assign({}, controller) }
     );

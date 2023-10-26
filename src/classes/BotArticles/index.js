@@ -2,14 +2,15 @@ const BotHandler = require("../BotHandler");
 const DBHandler = require("../DBHandler");
 
 const {
-  get_regular_keyboard_markup, getRegularKeyboardKeys,
-  getRegularKeyboardObj, get_inline_keyboard_articles, getActionTypes
+  get_regular_keyboard_markup, getRegularKeyboardKeys, getMenuTypes, get_inline_keyboard_topics,
+  getRegularKeyboardObj, get_inline_keyboard_articles, get_inline_keyboard_articles_add, getActionTypes
 } = require("../../config");
 //const { handleMessages, handleQuery } = require("../../_handlers");
 const { splitArrBy, flattenObject } = require("../../_utils");
 
 const { specId } = process.env;
 const { ARTICLES, ADD_ARTICLE } = getActionTypes();
+const { mainMenu, topicsMenu, addArticleMenu } = getMenuTypes();
 
 module.exports = class BotArticles {
   constructor() {
@@ -19,7 +20,8 @@ module.exports = class BotArticles {
     this.topicsCollection = [];
     this.topicsKeyboardMarkup = [];
     this.regularKeys = getRegularKeyboardKeys();
-    //data for creating inline-keyboards for each article
+
+    //data for creating inline-keyboards for each article, temporal new articles...
     this.userCash = {};
 
     this.handleMessage = this.handleMessage.bind(this);
@@ -51,7 +53,25 @@ module.exports = class BotArticles {
         })
       },
       [mainMenu.articleAdd]: async () => {
-        log("articleAdd ...");
+        if (!this.userCash[userId]) {
+          this.userCash[userId] = {};
+        }
+
+        /**
+         * Making the object for the temporal new article to be filled with the required properties
+         */
+        this.userCash[userId].newArticle = {
+          name: null,
+          typeId: null,
+          description: null,
+          link: null
+        };
+
+        await this.botHandler._sendMessage(chatId, "Заполните поля ресурса:", {
+          reply_markup: {
+            inline_keyboard: get_inline_keyboard_articles_add()
+          }
+        })
       },
       [mainMenu.favorite]: async () => {
         const user = await this.dbHandler.getDocumentByProp(
@@ -94,6 +114,7 @@ module.exports = class BotArticles {
         })
       }
     };
+
     if (msgText in actionsObj) {
       await actionsObj[msgText]();
     }
@@ -176,12 +197,15 @@ module.exports = class BotArticles {
               };
 
               if (!this.userCash[userId]) {
-                this.userCash[userId] = {
-                  articlesInlineKBParams: new Map()
-                }
+                this.userCash[userId] = {};
+              }
+              else if (!this.userCash[userId].articlesInlineKBParams) {
+                this.userCash[userId].articlesInlineKBParams = new Map();
               }
 
               this.userCash[userId].articlesInlineKBParams.set(articleId, params);
+
+
 
               await this.botHandler._sendArticle(chatId, article, {
                 reply_markup: {
@@ -213,10 +237,11 @@ module.exports = class BotArticles {
       const actionType = data?.tp || null;
       const articleId = data?.aId || null;
       const isConfirmed = data?.ok || null; //true|false is confirmed... null - empty;
+      const topicTypeId = data?.tt || null;
 
       log(data, "data: ");
 
-      const actionTypesHandles = {
+      const actionTypesArticlesHandles = {
         [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
           if (isConfirmed) {
             //deleting cashed inline_keyboard data...
@@ -267,10 +292,6 @@ module.exports = class BotArticles {
           }
 
         },
-        [ARTICLES.ARTICLE_ADD]: async () => {
-          log("ARTICLE_ADD...");
-
-        },
         [ARTICLES.ARTICLE_DELETE]: async () => {
           if (isConfirmed) {
             log("ARTICLE_DELETE confirmed...");
@@ -293,12 +314,60 @@ module.exports = class BotArticles {
         }
       };
 
+      const actionTypesArticleAddHandles = {
+        [ADD_ARTICLE.ADD_ARTICLE_NAME]: async () => {
+          await this.botHandler._sendMessage(chatId, `Введите ${ addArticleMenu.addArticleName }`);
+        },
+        [ADD_ARTICLE.ADD_ARTICLE_DESCRIPTION]: async () => {
+          await this.botHandler._sendMessage(chatId, `Введите ${ addArticleMenu.addArticleDescription }`);
+        },
+        [ADD_ARTICLE.ADD_ARTICLE_LINK]: async () => {
+          await this.botHandler._sendMessage(chatId, `Введите ${ addArticleMenu.addArticleLink }`);
+        },
+        [ADD_ARTICLE.ADD_ARTICLE_TYPEID]: async () => {
+          //log(this.topicsCollection, "this.topicsCollection: ");
+          //_id, name, typeId
+          const topicsDataArr = this.topicsCollection.map(topic => ({
+            name: topic.name,
+            typeId: topic.typeId
+          }));
+
+          const inline_keyboard = get_inline_keyboard_topics(topicsDataArr);
+
+
+          await this.botHandler._sendMessage(
+              chatId,
+              `Выберите ${ addArticleMenu.addArticleTypeId }`,
+              {
+                reply_markup: {
+                  inline_keyboard
+                }
+              }
+              );
+
+
+        },
+        [ADD_ARTICLE.ADD_ARTICLE_SUBMIT]: async () => {
+          log("submit...");
+          //TODO: to check all props to be filled;
+        },
+        [ADD_ARTICLE.ADD_ARTICLE_CANCEL]: async () => {
+          log("cancelling...");
+          //TODO: to return remove the message with inline_keyboard for adding article
+        },
+      };
+
       /**
        * if data.type of callback_query is in ARTICLES,
        * then to handle callback_query from article inline_keyboard
        */
-      if (actionType && actionType in actionTypesHandles) {
-        actionTypesHandles[actionType](articleId, isConfirmed);
+      if (actionType) {
+        if (actionType in actionTypesArticlesHandles) {
+          actionTypesArticlesHandles[actionType]();
+        }
+        else if (actionType in actionTypesArticleAddHandles) {
+          actionTypesArticleAddHandles[actionType]();
+        }
       }
     }
     catch (e) {

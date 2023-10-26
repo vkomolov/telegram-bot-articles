@@ -12,10 +12,6 @@ const topicSchema = new Schema(
         type: String,
         required: true,
       },
-      picture: {
-        type: String,
-        required: true,
-      },
       typeId: {
         type: String,
         required: true,

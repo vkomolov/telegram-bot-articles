@@ -29,6 +29,29 @@ module.exports = class BotArticles {
   }
 ///END OF CONSTRUCTOR
 
+  _getAndCashArticleInlineKBParams (article, userId, isFav, isSpec) {
+    const articleId = article._id.toString();  //converting from ObjectId()
+
+    const params = {
+      link: article.link,
+      articleId,
+      isFav,
+      isSpec
+    };
+
+    if (!this.userCash[userId]) {
+      this.userCash[userId] = {};
+    }
+
+    if (!this.userCash[userId].articlesInlineKBParams) {
+      this.userCash[userId].articlesInlineKBParams = new Map();
+    }
+
+    this.userCash[userId].articlesInlineKBParams.set(articleId, params);
+
+    return params;
+  }
+
   _getInlineKeyboardData (userId, articleId) {
     if (userId in this.userCash) {
       const userArticles = this.userCash[userId].articlesInlineKBParams; //returns Map
@@ -59,6 +82,7 @@ module.exports = class BotArticles {
 
         /**
          * Making the object for the temporal new article to be filled with the required properties
+         * Every action for creation article will clean previous params with new object
          */
         this.userCash[userId].newArticle = {
           name: null,
@@ -81,23 +105,23 @@ module.exports = class BotArticles {
             });
 
         const { favorites } = user;
+
         if (favorites.length) {
           for (const articleId of favorites) {
             const article = await this.dbHandler.getDocumentByProp("Article", {
               _id: articleId
             });
 
+            //isFav is true
+            const params = this._getAndCashArticleInlineKBParams(article, userId, true, isSpec);
+
             await this.botHandler._sendArticle(chatId, article,{
               reply_markup: {
                 inline_keyboard: get_inline_keyboard_articles({
-                  link: article.link,
-                  articleId: article._id,
-                  isFav: true,
-                  isSpec
-                })
+                  ...params,
+                }),
               }
             })
-
           }
         }
         else {
@@ -187,25 +211,9 @@ module.exports = class BotArticles {
           if (collectionArticles.length) {
             for (const article of collectionArticles) {
               const isFav = userFavorites.includes(article._id);
-              const articleId = article._id.toString();  //converting from ObjectId()
+              const params = this._getAndCashArticleInlineKBParams(article, userId, isFav, isSpec);
 
-              const params = {
-                link: article.link,
-                articleId,
-                isFav,
-                isSpec
-              };
-
-              if (!this.userCash[userId]) {
-                this.userCash[userId] = {};
-              }
-
-              if (!this.userCash[userId].articlesInlineKBParams) {
-                this.userCash[userId].articlesInlineKBParams = new Map();
-              }
-
-              this.userCash[userId].articlesInlineKBParams.set(articleId, params);
-
+              log(params, "params: ");
 
               await this.botHandler._sendArticle(chatId, article, {
                 reply_markup: {
@@ -245,7 +253,7 @@ module.exports = class BotArticles {
         [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
           if (isConfirmed) {
             //deleting cashed inline_keyboard data...
-            await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId, {
+            await this.setCashedArticleInlineKB(articleId, chatId, msgId, userId, {
               isFav: true,
             });
 
@@ -269,7 +277,7 @@ module.exports = class BotArticles {
         },
         [ARTICLES.ARTICLE_FAVORITE_REMOVE]: async () => {
           if (isConfirmed) {
-            await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId,{
+            await this.setCashedArticleInlineKB(articleId, chatId, msgId, userId,{
               isFav: false,
             });
 
@@ -310,7 +318,7 @@ module.exports = class BotArticles {
           }
         },
         [ARTICLES.ARTICLE_CANCEL]: async () => {
-          await this.setDefaultInlineKeyboard(articleId, chatId, msgId, userId);
+          await this.setCashedArticleInlineKB(articleId, chatId, msgId, userId);
         }
       };
 
@@ -375,7 +383,7 @@ module.exports = class BotArticles {
     }
   }
 
-  async setDefaultInlineKeyboard (articleId, chatId, msgId, userId, params={}) {
+  async setCashedArticleInlineKB (articleId, chatId, msgId, userId, params={}) {
     const auxData = this._getInlineKeyboardData(userId, articleId);
 
     await this.botHandler._editMessageReplyMarkup({
@@ -388,6 +396,8 @@ module.exports = class BotArticles {
       message_id: msgId
     });
   }
+
+
 
   async start() {
     try {

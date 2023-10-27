@@ -1,18 +1,5 @@
 const { flattenObject, getBytesLength, splitArrBy } = require("../_utils");
 
-module.exports = {
-  getBotCredentials,
-  get_regular_keyboard_markup,
-  getRegularKeyboardKeys,
-  getRegularKeyboardObj,
-  getMenuTypes,
-  getActionTypes,
-  get_inline_keyboard_articles,
-  get_inline_keyboard_articles_add,
-  get_inline_keyboard_topics,
-  getConfirmationMarkup,
-};
-
 //TODO: multiple languages...
 const keyboardKeys = {
   articles: "Статьи",
@@ -52,11 +39,11 @@ const menuTypes = {
   }
 };
 
-function getMenuTypes() {
+module.exports.getMenuTypes = function () {
   return menuTypes;
-}
+};
 
-function getActionTypes() {
+function getActionTypes () {
   return {
     ARTICLES: {
       ARTICLE_FAVORITE_ADD: "AFA",
@@ -80,11 +67,9 @@ function getActionTypes() {
     }
   };
 }
+module.exports.getActionTypes = getActionTypes;
 
-function getConfirmationMarkup(userId, cb_dataTrue, cb_dataFalse) {
-  const { ARTICLES } = getActionTypes();
-  const { aId } = cb_dataTrue;
-
+module.exports.getConfirmationMarkup = function (userId, cb_dataTrue, cb_dataFalse) {
   return (
       [
         [
@@ -99,9 +84,9 @@ function getConfirmationMarkup(userId, cb_dataTrue, cb_dataFalse) {
         ]
       ]
   );
-}
+};
 
-function get_inline_keyboard_articles({ link, articleId, isFav, isSpec }) {
+module.exports.get_inline_keyboard_articles = function ({ link, articleId, isFav, isSpec }) {
   const { ARTICLES } = getActionTypes();
   const favText = isFav ? keyboardKeys.deleteFromFaforites : keyboardKeys.addToFaforites;
   const callBackTypeFav = isFav ? ARTICLES.ARTICLE_FAVORITE_REMOVE : ARTICLES.ARTICLE_FAVORITE_ADD;
@@ -146,9 +131,9 @@ function get_inline_keyboard_articles({ link, articleId, isFav, isSpec }) {
   ];
 
   return isSpec ? regularInlineKeyboardMarkup.concat(specInlineKeyboardMarkup) : regularInlineKeyboardMarkup;
-}
+};
 
-function get_inline_keyboard_articles_add() {
+module.exports.get_inline_keyboard_articles_add = function () {
   const { ADD_ARTICLE } = getActionTypes();
   const menuKeys = menuTypes.addArticleMenu;
 
@@ -196,9 +181,9 @@ function get_inline_keyboard_articles_add() {
       }
     ]
   ];
-}
+};
 
-function get_inline_keyboard_topics(topicsDataArr) {
+module.exports.get_inline_keyboard_topics = function (topicsDataArr) {
   //const topicsArr = splitArrBy(topicsData, 2);
   const { ADD_ARTICLE } = getActionTypes();
   const { topicsMenu, addArticleMenu } = getMenuTypes();
@@ -228,17 +213,17 @@ function get_inline_keyboard_topics(topicsDataArr) {
   //_id, name, typeId
 
   return markup;
-}
+};
 
-function getRegularKeyboardObj(prop = null) {
+module.exports.getRegularKeyboardObj = function (prop = null) {
   return prop && prop in menuTypes ? menuTypes[prop] : menuTypes;
-}
+};
 
-function getRegularKeyboardKeys() {
+module.exports.getRegularKeyboardKeys = function () {
   return flattenObject(menuTypes);
-}
+};
 
-function get_regular_keyboard_markup(isSpec = false, prop = null) {
+module.exports.get_regular_keyboard_markup = function (isSpec = false, prop = null) {
   const { mainMenu, topicsMenu } = menuTypes;
 
   const markup = {
@@ -256,14 +241,14 @@ function get_regular_keyboard_markup(isSpec = false, prop = null) {
   }
 
   return prop && prop in markup ? markup[prop] : markup;
-}
+};
 
-function getBotCredentials() {
+module.exports.getBotCredentials = function () {
   return {
     botName: "MasterCityCat",
     username: "RocketsDevBot",
   }
-}
+};
 
 
 ///////////DEV

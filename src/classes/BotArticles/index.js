@@ -199,12 +199,12 @@ module.exports = class BotArticles {
               if (!this.userCash[userId]) {
                 this.userCash[userId] = {};
               }
-              else if (!this.userCash[userId].articlesInlineKBParams) {
+
+              if (!this.userCash[userId].articlesInlineKBParams) {
                 this.userCash[userId].articlesInlineKBParams = new Map();
               }
 
               this.userCash[userId].articlesInlineKBParams.set(articleId, params);
-
 
 
               await this.botHandler._sendArticle(chatId, article, {

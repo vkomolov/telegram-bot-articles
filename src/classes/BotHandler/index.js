@@ -1,5 +1,5 @@
 const TelegramBot = require("node-telegram-bot-api");
-const { getConfirmationMarkup, getActionTypes } = require("../../config");
+const _ = require("../../config");
 
 const { token, specId } = process.env;
 
@@ -16,11 +16,23 @@ module.exports = class BotHandler {
     this.parse_mode = "Markdown"
   }
 
-  async _deleteMessage (chat_id, message_id) {
+  async deleteMessage (chat_id, message_id) {
     await this.bot.deleteMessage(chat_id, message_id)
   }
 
-  async _editMessageReplyMarkup (newReplyMarkup, { chat_id, message_id } ) {
+  async editMessageText (newText, { chat_id, message_id, reply_markup = {} }) {
+    //TODO: validation of newText
+    if (newText.trim().length) {
+      await this.bot.editMessageText(newText.trim(), {
+        chat_id,
+        message_id,
+        parse_mode: this.parse_mode,
+        reply_markup,
+      });
+    }
+  }
+
+  async editMessageReplyMarkup (newReplyMarkup, { chat_id, message_id } ) {
     try {
       await this.bot.editMessageReplyMarkup({
         ...newReplyMarkup
@@ -35,7 +47,7 @@ module.exports = class BotHandler {
 
   async confirmArticleAction (chatId, msgId, userId, callback_data) {
     try {
-      const { ARTICLES } = getActionTypes();
+      const { ARTICLES } = _.getActionTypes();
       //giving confirm status
       const cbDataTrue = {
         ...callback_data,
@@ -50,9 +62,9 @@ module.exports = class BotHandler {
         aId,
       };
 
-      await this._editMessageReplyMarkup({
+      await this.editMessageReplyMarkup({
         inline_keyboard: [
-            ...getConfirmationMarkup(userId, cbDataTrue, cbDataFalse)
+            ..._.getConfirmationMarkup(userId, cbDataTrue, cbDataFalse),
         ]
       }, {
         chat_id: chatId,
@@ -61,6 +73,44 @@ module.exports = class BotHandler {
     }
     catch (e) {
       console.error("error at getConfirmationMarkup: ", e);
+    }
+  }
+
+  async confirmAddArticleAction (chatId, msgId, userId, { activeProp, activePropValue }) {
+    const { ADD_ARTICLE } = _.getActionTypes();
+    const activePropCb = {
+      name: async () => {
+        const cbDataTrue = {
+          tp: ADD_ARTICLE.ADD_ARTICLE_NAME_GET,
+          apv: activePropValue
+        };
+        const cbDataFalse = {
+          tp: ADD_ARTICLE.ADD_ARTICLE_NAME_CANCEL,
+          uId: userId,
+        };
+
+        const params = {
+          reply_markup: {
+            inline_keyboard: [
+              ..._.getConfirmationMarkup(userId, cbDataTrue, cbDataFalse),
+            ]
+          }
+        };
+
+        const confirmMessage = `Подтвердите название новой статьи: *"${ activePropValue }"*`;
+
+        await this._sendMessage(chatId, confirmMessage, params);
+      },
+      typeId: () => {},
+      description: () => {},
+      link: () => {},
+    };
+
+    if (activeProp in activePropCb) {
+      activePropCb[activeProp]();
+    }
+    else {
+      throw new Error(`no such property ${ activeProp } found...`);
     }
   }
 
@@ -83,7 +133,7 @@ module.exports = class BotHandler {
     }
   }
 
-  async _sendArticle(chatId, article, params={}) {
+  async sendArticle(chatId, article, params={}) {
     try {
       const reply_markup = params?.reply_markup || {};
 
@@ -159,6 +209,28 @@ module.exports = class BotHandler {
           parse_mode: this.parse_mode,
           reply_markup
         });
+  }
+
+  async _answerCallbackQuery (queryId, msgText) {
+    await this.bot.answerCallbackQuery(queryId, {
+      text: msgText,
+      show_alert: false
+    })
+  }
+
+  async checkAndSendMessageWithEmptyADraftProps (chatId, msgId, queryId, aDraft) {
+    const emptyPropsArr = aDraft.getEmptyProps();
+    const msgText = !emptyPropsArr.length
+        ? "Все поля заполнены"
+        : `Остались пустые поля: \n${ emptyPropsArr.join(`,\n`) }`;
+
+    await this.editMessageText(msgText, {
+      chat_id: chatId,
+      message_id: msgId,
+      reply_markup: {
+        inline_keyboard: _.get_inline_keyboard_articles_add()
+      }
+    });
   }
 };
 

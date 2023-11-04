@@ -3,7 +3,7 @@ const { flattenObject, getBytesLength, splitArrBy } = require("../_utils");
 //TODO: multiple languages...
 const keyboardKeys = {
   articles: "Статьи",
-  articleAdd: "Добавить ресурс",
+  articleAdd: "Добавить статью",
   favorite: "Избранное",
   back: "Назад",
   deleteFromFaforites: "Убрать из Избранного",
@@ -30,12 +30,21 @@ const menuTypes = {
     back: keyboardKeys.back
   },
   addArticleMenu: {
-    addArticleName: keyboardKeys.addArticleName,
-    addArticleTypeId: keyboardKeys.addArticleTypeId,
-    addArticleDescription: keyboardKeys.addArticleDescription,
-    addArticleLink: keyboardKeys.addArticleLink,
+    name: keyboardKeys.addArticleName,
+    typeId: keyboardKeys.addArticleTypeId,
+    description: keyboardKeys.addArticleDescription,
+    link: keyboardKeys.addArticleLink,
     cancel: keyboardKeys.cancel,
     submit: keyboardKeys.submit,
+  }
+};
+
+module.exports.getDefaultArticleData = function () {
+  return {
+    name: null,
+    typeId: null,
+    description: null,
+    link: null
   }
 };
 
@@ -43,7 +52,7 @@ module.exports.getMenuTypes = function () {
   return menuTypes;
 };
 
-function getActionTypes () {
+function getActionTypes() {
   return {
     ARTICLES: {
       ARTICLE_FAVORITE_ADD: "AFA",
@@ -56,18 +65,26 @@ function getActionTypes () {
     },
     ADD_ARTICLE: {
       ADD_ARTICLE_NAME: "AAN",
+      ADD_ARTICLE_NAME_GET: "AANG",
+      ADD_ARTICLE_NAME_CANCEL: "AANC",
       ADD_ARTICLE_TYPEID: "AAT",
       ADD_ARTICLE_TYPEID_GET: "AATG",
       ADD_ARTICLE_TYPEID_CANCEL: "AATC",
       ADD_ARTICLE_DESCRIPTION: "AAD",
+      ADD_ARTICLE_DESCRIPTION_GET: "AADG",
       ADD_ARTICLE_LINK: "AAL",
-      ADD_ARTICLE_RATE: "AAR",
+      ADD_ARTICLE_LINK_GET: "AALG",
       ADD_ARTICLE_CANCEL: "AAC",
       ADD_ARTICLE_SUBMIT: "AAS",
     }
   };
 }
+
 module.exports.getActionTypes = getActionTypes;
+
+module.exports.getMenuKeys = function () {
+  return menuTypes;
+};
 
 module.exports.getConfirmationMarkup = function (userId, cb_dataTrue, cb_dataFalse) {
   return (
@@ -140,13 +157,13 @@ module.exports.get_inline_keyboard_articles_add = function () {
   return [
     [
       {
-        text: menuKeys.addArticleName,
+        text: menuKeys.name,
         callback_data: JSON.stringify({
           tp: ADD_ARTICLE.ADD_ARTICLE_NAME,
         })
       },
       {
-        text: menuKeys.addArticleTypeId,
+        text: menuKeys.typeId,
         callback_data: JSON.stringify({
           tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID
         })
@@ -154,13 +171,13 @@ module.exports.get_inline_keyboard_articles_add = function () {
     ],
     [
       {
-        text: menuKeys.addArticleDescription,
+        text: menuKeys.description,
         callback_data: JSON.stringify({
           tp: ADD_ARTICLE.ADD_ARTICLE_DESCRIPTION
         })
       },
       {
-        text: menuKeys.addArticleLink,
+        text: menuKeys.link,
         callback_data: JSON.stringify({
           tp: ADD_ARTICLE.ADD_ARTICLE_LINK
         })
@@ -183,12 +200,12 @@ module.exports.get_inline_keyboard_articles_add = function () {
   ];
 };
 
-module.exports.get_inline_keyboard_topics = function (topicsDataArr) {
+module.exports.get_inline_keyboard_topics = function (topicsDataArr, splitBy = 2) {
   //const topicsArr = splitArrBy(topicsData, 2);
   const { ADD_ARTICLE } = getActionTypes();
-  const { topicsMenu, addArticleMenu } = getMenuTypes();
+  const { topicsMenu, addArticleMenu } = module.exports.getMenuTypes();
 
-  const topicsDataArrInline = topicsDataArr.map(topicData => ({
+  const topicsInlineDataArr = topicsDataArr.map(topicData => ({
     text: topicData.name,
     callback_data: JSON.stringify({
       tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_GET,
@@ -196,23 +213,17 @@ module.exports.get_inline_keyboard_topics = function (topicsDataArr) {
     }),
   }));
 
-  topicsDataArrInline.push(
-    {
-      text: topicsMenu.back,
-      callback_data: JSON.stringify({
-        tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_CANCEL,
-      })
-    }
+  topicsInlineDataArr.push(
+      {
+        text: topicsMenu.back,
+        callback_data: JSON.stringify({
+          tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_CANCEL,
+        })
+      }
   );
 
-  log(topicsDataArrInline, "topicsDataArrInline: ");
 
-  const markup = splitArrBy(topicsDataArrInline, 2);
-  log(markup, "markup: ");
-
-  //_id, name, typeId
-
-  return markup;
+  return splitArrBy(topicsInlineDataArr, splitBy);
 };
 
 module.exports.getRegularKeyboardObj = function (prop = null) {

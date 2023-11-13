@@ -11,29 +11,11 @@ module.exports = class ArticleDraft {
       link: articleData?.link || null,
     };
 
-    this.activeProp = null;
+    this._activeProp = null;
   }
 
-  setActive(propName) {
-    if (propName in this.projectArticleData) {
-      this.activeProp = propName;
-    }
-    else {
-      throw new Error(`no such property ${ propName } in the article project...`);
-    }
-  }
 
-  setActivePropValue(str) {
-    if (this.activeProp) {
-      //TODO: to validate str...
-      this.projectArticleData[this.activeProp] = str;
-    }
-    else {
-      throw new Error("the article draft active property is null...");
-    }
-  }
-
-  getEmptyProps(separ = null) {
+  getEmptyProps (separ = null) {
     let emptyProps = getEmptyKeys(this.projectArticleData);
     const { addArticleMenu } = _.getMenuKeys();
     const emptyPropsArr = emptyProps.map(prop => {
@@ -47,6 +29,32 @@ module.exports = class ArticleDraft {
       return emptyPropsArr.join(separ);
     }
     return emptyPropsArr;
+  }
+
+  get activeProp () {
+    return this._activeProp;
+  }
+
+  set activeProp (propName) {
+
+    //log(propName, "propName at activeProp: ");
+    //log(this.projectArticleData, "this.projectArticleData");
+
+    if (propName in this.projectArticleData) {
+      this._activeProp = propName;
+
+      log(this._activeProp, "this._activeProp: ");
+    }
+  }
+
+  setActivePropValue (propVal) {
+    if (this.activeProp) {
+      //TODO: to validate str...
+      this.projectArticleData[this.activeProp] = propVal;
+    }
+    else {
+      throw new Error("the article draft active property is null...");
+    }
   }
 
   setProp (paramsObj) {
@@ -64,6 +72,7 @@ module.exports = class ArticleDraft {
       console.error("given AProject param is empty...")
     }
   }
+
 };
 
 

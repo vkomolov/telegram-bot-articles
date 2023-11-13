@@ -20,7 +20,7 @@ const keyboardKeys = {
   addArticleLink: "Ссылка на ресурс"
 };
 
-const menuTypes = {
+const menuKeys = {
   mainMenu: {
     articles: keyboardKeys.articles,
     articleAdd: keyboardKeys.articleAdd,
@@ -48,8 +48,8 @@ module.exports.getDefaultArticleData = function () {
   }
 };
 
-module.exports.getMenuTypes = function () {
-  return menuTypes;
+module.exports.getMenuKeys = function () {
+  return menuKeys;
 };
 
 function getActionTypes() {
@@ -64,6 +64,9 @@ function getActionTypes() {
       ARTICLE_CANCEL: "AC",
     },
     ADD_ARTICLE: {
+      ADD_ARTICLE_PROP: "AAP",
+      ADD_ARTICLE_PROP_SET: "AAPS",
+      ADD_ARTICLE_PROP_CANCEL: "AAPC",
       ADD_ARTICLE_NAME: "AAN",
       ADD_ARTICLE_NAME_GET: "AANG",
       ADD_ARTICLE_NAME_CANCEL: "AANC",
@@ -83,7 +86,7 @@ function getActionTypes() {
 module.exports.getActionTypes = getActionTypes;
 
 module.exports.getMenuKeys = function () {
-  return menuTypes;
+  return menuKeys;
 };
 
 module.exports.getConfirmationMarkup = function (userId, cb_dataTrue, cb_dataFalse) {
@@ -150,48 +153,32 @@ module.exports.get_inline_keyboard_articles = function ({ link, articleId, isFav
   return isSpec ? regularInlineKeyboardMarkup.concat(specInlineKeyboardMarkup) : regularInlineKeyboardMarkup;
 };
 
-module.exports.get_inline_keyboard_articles_add = function () {
+module.exports.get_inline_keyboard_articles_add = function (splitBy = 2) {
   const { ADD_ARTICLE } = getActionTypes();
-  const menuKeys = menuTypes.addArticleMenu;
+  const { submit, cancel, ...aDraftPropKeysObj } = menuKeys.addArticleMenu;
+  const aDraftInlineKBArr = Object.keys(aDraftPropKeysObj).map(key => {
+    return {
+      text: aDraftPropKeysObj[key],
+      callback_data: JSON.stringify({
+        tp: ADD_ARTICLE.ADD_ARTICLE_PROP,
+        val: key
+      })
+    }
+  });
+
+  const aDraftInlineKBArrSplit = splitArrBy(aDraftInlineKBArr, splitBy);
 
   return [
+    ...aDraftInlineKBArrSplit,
     [
       {
-        text: menuKeys.name,
-        callback_data: JSON.stringify({
-          tp: ADD_ARTICLE.ADD_ARTICLE_NAME,
-        })
-      },
-      {
-        text: menuKeys.typeId,
-        callback_data: JSON.stringify({
-          tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID
-        })
-      },
-    ],
-    [
-      {
-        text: menuKeys.description,
-        callback_data: JSON.stringify({
-          tp: ADD_ARTICLE.ADD_ARTICLE_DESCRIPTION
-        })
-      },
-      {
-        text: menuKeys.link,
-        callback_data: JSON.stringify({
-          tp: ADD_ARTICLE.ADD_ARTICLE_LINK
-        })
-      },
-    ],
-    [
-      {
-        text: menuKeys.submit,
+        text: submit,
         callback_data: JSON.stringify({
           tp: ADD_ARTICLE.ADD_ARTICLE_SUBMIT
         })
       },
       {
-        text: menuKeys.cancel,
+        text: cancel,
         callback_data: JSON.stringify({
           tp: ADD_ARTICLE.ADD_ARTICLE_CANCEL
         })
@@ -203,13 +190,13 @@ module.exports.get_inline_keyboard_articles_add = function () {
 module.exports.get_inline_keyboard_topics = function (topicsDataArr, splitBy = 2) {
   //const topicsArr = splitArrBy(topicsData, 2);
   const { ADD_ARTICLE } = getActionTypes();
-  const { topicsMenu, addArticleMenu } = module.exports.getMenuTypes();
+  const { topicsMenu, addArticleMenu } = module.exports.getMenuKeys();
 
   const topicsInlineDataArr = topicsDataArr.map(topicData => ({
     text: topicData.name,
     callback_data: JSON.stringify({
-      tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_GET,
-      tt: topicData.typeId
+      tp: ADD_ARTICLE.ADD_ARTICLE_PROP_SET,
+      val: topicData.typeId
     }),
   }));
 
@@ -217,7 +204,7 @@ module.exports.get_inline_keyboard_topics = function (topicsDataArr, splitBy = 2
       {
         text: topicsMenu.back,
         callback_data: JSON.stringify({
-          tp: ADD_ARTICLE.ADD_ARTICLE_TYPEID_CANCEL,
+          tp: ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL,
         })
       }
   );
@@ -227,15 +214,15 @@ module.exports.get_inline_keyboard_topics = function (topicsDataArr, splitBy = 2
 };
 
 module.exports.getRegularKeyboardObj = function (prop = null) {
-  return prop && prop in menuTypes ? menuTypes[prop] : menuTypes;
+  return prop && prop in menuKeys ? menuKeys[prop] : menuKeys;
 };
 
 module.exports.getRegularKeyboardKeys = function () {
-  return flattenObject(menuTypes);
+  return flattenObject(menuKeys);
 };
 
 module.exports.get_regular_keyboard_markup = function (isSpec = false, prop = null) {
-  const { mainMenu, topicsMenu } = menuTypes;
+  const { mainMenu, topicsMenu } = menuKeys;
 
   const markup = {
     "mainMenu": [

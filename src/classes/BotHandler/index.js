@@ -23,7 +23,7 @@ module.exports = class BotHandler {
   async editMessageText (newText, { chat_id, message_id, reply_markup = {} }) {
     //TODO: validation of newText
     if (newText.trim().length) {
-      await this.bot.editMessageText(newText.trim(), {
+      return await this.bot.editMessageText(newText.trim(), {
         chat_id,
         message_id,
         parse_mode: this.parse_mode,
@@ -78,40 +78,32 @@ module.exports = class BotHandler {
 
   async confirmAddArticleAction (chatId, msgId, userId, { activeProp, activePropValue }) {
     const { ADD_ARTICLE } = _.getActionTypes();
-    const activePropCb = {
-      name: async () => {
-        const cbDataTrue = {
-          tp: ADD_ARTICLE.ADD_ARTICLE_NAME_GET,
-          apv: activePropValue
-        };
-        const cbDataFalse = {
-          tp: ADD_ARTICLE.ADD_ARTICLE_NAME_CANCEL,
-          uId: userId,
-        };
+    const { addArticleMenu } = _.getMenuKeys();
 
-        const params = {
-          reply_markup: {
-            inline_keyboard: [
-              ..._.getConfirmationMarkup(userId, cbDataTrue, cbDataFalse),
-            ]
-          }
-        };
+    if (!addArticleMenu[activeProp]) {
+      throw new Error(`Error at confirmAddArticleAction with activeProp: ${ activeProp }`);
+    }
 
-        const confirmMessage = `Подтвердите название новой статьи: *"${ activePropValue }"*`;
-
-        await this._sendMessage(chatId, confirmMessage, params);
-      },
-      typeId: () => {},
-      description: () => {},
-      link: () => {},
+    const cbDataTrue = {
+      tp: ADD_ARTICLE.ADD_ARTICLE_PROP_SET,
+      val: activePropValue
+    };
+    const cbDataFalse = {
+      tp: ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL,
+      uId: userId,
     };
 
-    if (activeProp in activePropCb) {
-      activePropCb[activeProp]();
-    }
-    else {
-      throw new Error(`no such property ${ activeProp } found...`);
-    }
+    const params = {
+      reply_markup: {
+        inline_keyboard: [
+          ..._.getConfirmationMarkup(userId, cbDataTrue, cbDataFalse),
+        ]
+      }
+    };
+
+    const confirmMessage = `Подтвердите название новой статьи: *"${ activePropValue }"*`;
+
+    return await this._sendMessage(chatId, confirmMessage, params);
   }
 
   async _sendMessage (chatId, textMessage, params={}) {
@@ -122,7 +114,7 @@ module.exports = class BotHandler {
       };
 
       if (this.bot) {
-        await this.bot.sendMessage(chatId, textMessage, auxParams);
+        return await this.bot.sendMessage(chatId, textMessage, auxParams);
       }
       else {
         console.error("this bot is not initiated...");
@@ -144,7 +136,7 @@ module.exports = class BotHandler {
       const resMessage = `${ articleHeading } \n\n${ articleDescription } \n\n`;
       const picUrl = "https://devby.io/storage/images/50/85/44/91/derived/d43d698b57d948929798843e9095d6cd.jpg";
 
-      await this.bot.sendPhoto(chatId, picUrl, {
+      return await this.bot.sendPhoto(chatId, picUrl, {
         caption: resMessage,
         parse_mode: this.parse_mode,
         reply_markup
@@ -202,13 +194,14 @@ module.exports = class BotHandler {
         \nВыберите команду для начала работы:`;
 
 
-    await this.bot.sendMessage(
+    return await this.bot.sendMessage(
         chatId,
         hello,
         {
           parse_mode: this.parse_mode,
           reply_markup
         });
+
   }
 
   async _answerCallbackQuery (queryId, msgText) {

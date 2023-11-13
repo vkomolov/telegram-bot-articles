@@ -33,6 +33,10 @@ module.exports.getEmptyKeys = function (object) {
 };
 
 module.exports.splitArrBy = function splitArrayBy(arr, splitLimit = 2) {
+  if (!splitLimit) {
+    return arr;
+  }
+
   const result = [];
   let currentGroup = [];
 

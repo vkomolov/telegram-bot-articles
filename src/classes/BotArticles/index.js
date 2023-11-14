@@ -96,7 +96,14 @@ module.exports = class BotArticles {
     await userIdCash.cashKBMsg({...msgData});
 
     if (kbMsgCash.chat_id && kbMsgCash.message_id) {
-      await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
+      //cashing for future delete
+      userIdCash.cashMsg({
+        chat_id: kbMsgCash.chat_id,
+        message_id: kbMsgCash.message_id
+      });
+      //await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
+
+      log(userIdCash.getMsgCash(), "_updateKbMsgCash/ userIdCash.getMsgCash(): ")
     }
   }
 
@@ -136,14 +143,18 @@ module.exports = class BotArticles {
 
     const actionsObj = {
       [mainMenu.articles]: async () => {
-
         await this.botHandler._sendMessage(chat_id, "Выберите тему статей:", {
           reply_markup: {
             keyboard: this.topicsKeyboardMarkup,
             resize_keyboard: true
           }
         })
-            .then((resMsg) => this._updateKbMsgCash(userId, this._getMsgResultData(resMsg)));
+            .then(async msgRes => {
+              await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+              await setTimeout(() => {
+                this._userMsgCashClean(userId);
+              }, 700);
+            });
 
 
 /*        await this.botHandler.editMessageText("Выберите тему статей:", {
@@ -213,7 +224,13 @@ module.exports = class BotArticles {
             resize_keyboard: true
           }
         })
-            .then(msgResult => this._updateKbMsgCash(userId, this._getMsgResultData(msgResult)));
+            .then(async msgRes => {
+              await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+              await setTimeout(() => {
+                this._userMsgCashClean(userId);
+              }, 700);
+            });
+
 
 /*        const userIdCash = this._getUserIdCash(userId);
         const kbMsgCash = userIdCash.getKBMsgCash();
@@ -276,30 +293,32 @@ module.exports = class BotArticles {
         //cashing message
         this._cashMsg(userId, { chat_id, message_id });
 
+        await this.botHandler.welcomeUser({ chat_id, user, userLastVisit }, {
+          reply_markup: {
+            keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
+            resize_keyboard: true
+          }
+        })
+            .then(async msgRes => {
+              await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+              await setTimeout(() => {
+                this._userMsgCashClean(userId);
+              }, 700);
+            });
+
         //cleaning previous cashed messages... (now it is only one record with "/start" cased message)...
-        await Promise.all([
-          this._userMsgCashClean(userId),
-          this.botHandler.welcomeUser({ chat_id, user, userLastVisit }, {
-            reply_markup: {
-              keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
-              resize_keyboard: true
-            }
-          })
-              .then(msgRes => {
-                this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
-              })
-        ]);
+        //await this._userMsgCashClean(userId);
       }
       else if (this.regularKeys.includes(msg.text)) {
         //const userIdCash = this.usersCash.get(userId);
         this._cashMsg(userId, { chat_id, message_id });
 
-        //cleaning previous messages...
-        await this._userMsgCashClean(userId);
-
         //userIdCash && userIdCash.cashMsg(chat_id, message_id);
 
         await this.handleRegularKey(chat_id, message_id, userId, msg.text);
+
+        //await this._userMsgCashClean(userId);
+
 
 /*        await Promise.all([
           this.handleRegularKey(chat_id, userId, message_id, msg.text),
@@ -378,10 +397,7 @@ module.exports = class BotArticles {
               log(msg.text, "msg.text on the out...");
 
               this._cashMsg(userId, { chat_id, message_id });
-
-              log(userIdCash.getMsgCash(), "userIdCash.getMsgCash(): ");
-
-              await this._userMsgCashClean(userId);
+              //await this._userMsgCashClean(userId);
 
               //userIdCash.cashMsg(chat_id, message_id);
               await this.botHandler._sendMessage(chat_id, `Сделай выбор из меню...`, {
@@ -391,7 +407,8 @@ module.exports = class BotArticles {
                 }
               })
                   .then(msgRes => {
-                    this._cashMsg(userId, this._getMsgResultData(msgRes));
+                    this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+                    this._userMsgCashClean(userId);
                   });
 
               //userIdCash.cashMsg(chat_id, message_id);

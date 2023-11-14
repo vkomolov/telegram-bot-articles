@@ -17,10 +17,10 @@ module.exports = class UserCash {
     this.articlesInlineKBParams.set(articleId, params);
   }
 
-  cashInKBMsg ({ chatId, msgId }) {
+  cashInKBMsg ({ chat_id, message_id }) {
     Object.assign(this.msgCash.inline_kb_msg, {
-      chatId,
-      msgId
+      chat_id,
+      message_id
     })
   }
 
@@ -28,10 +28,10 @@ module.exports = class UserCash {
     return this.msgCash.inline_kb_msg;
   }
 
-  cashKBMsg ({ chatId, msgId }) {
+  cashKBMsg ({ chat_id, message_id }) {
     Object.assign(this.msgCash.kb_msg, {
-      chatId,
-      msgId
+      chat_id,
+      message_id
     })
   }
 
@@ -40,10 +40,10 @@ module.exports = class UserCash {
   }
 
 
-  cashMsg({ chatId, msgId }) {
+  cashMsg({ chat_id, message_id }) {
     this.msgCash.msg_cash.add({
-      chatId,
-      msgId
+      chat_id,
+      message_id
     });
   }
 

@@ -172,7 +172,7 @@ module.exports = class BotHandler {
     }
   }
 
-  async welcomeUser ({ chatId, user, userLastVisit }, { reply_markup }) {
+  async welcomeUser ({ chat_id, user, userLastVisit }, { reply_markup }) {
     const { first_name, last_name, userId, language_code } = user;
     const isSpec = userId.toString() === specId.toString();
     const userName = `${ first_name } ${ last_name }`;
@@ -195,7 +195,7 @@ module.exports = class BotHandler {
 
 
     return await this.bot.sendMessage(
-        chatId,
+        chat_id,
         hello,
         {
           parse_mode: this.parse_mode,
@@ -211,15 +211,15 @@ module.exports = class BotHandler {
     })
   }
 
-  async checkAndSendMessageWithEmptyADraftProps (chatId, msgId, queryId, aDraft) {
+  async checkAndSendMessageWithEmptyADraftProps (chat_id, message_id, queryId, aDraft) {
     const emptyPropsArr = aDraft.getEmptyProps();
     const msgText = !emptyPropsArr.length
         ? "Все поля заполнены"
         : `Остались пустые поля: \n${ emptyPropsArr.join(`,\n`) }`;
 
     await this.editMessageText(msgText, {
-      chat_id: chatId,
-      message_id: msgId,
+      chat_id,
+      message_id,
       reply_markup: {
         inline_keyboard: _.get_inline_keyboard_articles_add()
       }

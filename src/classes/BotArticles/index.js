@@ -65,7 +65,6 @@ module.exports = class BotArticles {
    */
   _getInlineKeyboardData (userId, articleId) {
     const userIdCash = this._getUserIdCash(userId);
-
     return userIdCash.getInlineKBMap(articleId); //returns Map
   }
 
@@ -74,35 +73,45 @@ module.exports = class BotArticles {
     return userIdCash.getArticleDraft();
   }
 
-  //{ chatId, msgId }
+  //{ chat_id, message_id }
+  /**
+   *
+   * @param userId
+   * @param { Object } msgData
+   * @private
+   */
   _cashMsg (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
     userIdCash.cashMsg(msgData);
 
-    log(msgData, "msgData at _cashMsg:");
-
     log(userIdCash.getMsgCash(), "userCash cashed...");
   }
 
-  _cashKbMsg (userId, msgData) {
+  async _updateKbMsgCash (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
-    userIdCash.cashKBMsg(msgData);
+    const kbMsgCash = {
+      ...userIdCash.getKBMsgCash()
+    };
 
-    log(userIdCash.getKBMsgCash(), "keyboard cashed...")
+    await userIdCash.cashKBMsg({...msgData});
+
+    if (kbMsgCash.chat_id && kbMsgCash.message_id) {
+      await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
+    }
   }
 
   _cashInKbMsg (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
     userIdCash.cashInKBMsg(msgData);
 
-    log(userIdCash.getKBMsgCash(), "keyboard cashed...")
+    log(userIdCash.getKBMsgCash(), "inline keyboard cashed...")
   }
 
   _getMsgResultData (sentMsgResult) {
     if (sentMsgResult?.chat?.id && sentMsgResult?.message_id) {
       return {
-        chatId: sentMsgResult.chat.id,
-        msgId: sentMsgResult.message_id,
+        chat_id: sentMsgResult.chat.id,
+        message_id: sentMsgResult.message_id,
       };
     }
     else {
@@ -114,48 +123,38 @@ module.exports = class BotArticles {
     const userIdCash = this._getUserIdCash(userId);
 
     const msgCashArr = userIdCash.getMsgCash();
-    for (const { chatId, msgId } of msgCashArr) {
-      await this.botHandler.deleteMessage(chatId, msgId);
+    for (const { chat_id, message_id } of msgCashArr) {
+      await this.botHandler.deleteMessage(chat_id, message_id);
     }
 
-    log(userIdCash.getMsgCash(), "cash before clean: ");
-
     userIdCash.msgCashClean();
-
-    log(userIdCash.getMsgCash(), "cash after clean: ");
   }
 
-  async handleRegularKey(_chatId, userId, _msgId, msgText) {
+  async handleRegularKey(chat_id, message_id, userId, msgText) {
     const { mainMenu, topicsMenu } = _.getRegularKeyboardObj();
     const isSpec = userId.toString() === specId.toString();
 
     const actionsObj = {
       [mainMenu.articles]: async () => {
-        //await this._userMsgCashClean(userId);
-        const userIdCash = this._getUserIdCash(userId);
-        userIdCash.cashMsg({chatId: _chatId, msgId: _msgId});
 
-        const { chatId, msgId } = userIdCash.getKBMsgCash();
-
-        log(userIdCash.getMsgCash(), "userIdCash.getMsgCash(): ");
-        log(userIdCash.getKBMsgCash(), "userIdCash.getKBMsgCash(): ");
-
-        await this.botHandler.editMessageText("Выберите тему статей:", {
-          chat_id: chatId,
-          message_id: msgId,
+        await this.botHandler._sendMessage(chat_id, "Выберите тему статей:", {
           reply_markup: {
             keyboard: this.topicsKeyboardMarkup,
             resize_keyboard: true
           }
         })
+            .then((resMsg) => this._updateKbMsgCash(userId, this._getMsgResultData(resMsg)));
 
-/*        await this.botHandler._sendMessage(chatId, "Выберите тему статей:", {
+
+/*        await this.botHandler.editMessageText("Выберите тему статей:", {
+          chat_id: kbMsgCash.chat_id,
+          message_id: kbMsgCash.message_id,
           reply_markup: {
             keyboard: this.topicsKeyboardMarkup,
             resize_keyboard: true
           }
-        })
-            .then(msgResult => this._cashKbMsg(userId, this._getMsgResultData(msgResult)));*/
+        })*/
+
       },
       [mainMenu.articleAdd]: async () => {
         const userIdCash = this._getUserIdCash(userId);
@@ -166,74 +165,67 @@ module.exports = class BotArticles {
          */
         userIdCash.createArticleDraft();
 
-        await this._userMsgCashClean(userId);
-
-        await this.botHandler._sendMessage(chatId, "Заполните поля для новой статьи:", {
+        await this.botHandler._sendMessage(chat_id, "Заполните поля для новой статьи:", {
           reply_markup: {
             inline_keyboard: _.get_inline_keyboard_articles_add(),
           }
         })
             .then(msgResult => this._cashInKbMsg(userId, this._getMsgResultData(msgResult)));
+
       },
       [mainMenu.favorite]: async () => {
-        try {
-          const user = await this.dbHandler.getDocumentByProp(
-              "User",
-              {
-                userId
-              });
+        const user = await this.dbHandler.getDocumentByProp(
+            "User",
+            {
+              userId
+            });
 
-          const { favorites } = user;
+        const { favorites } = user;
 
-          await this._userMsgCashClean();
+        if (favorites.length) {
+          for (const articleId of favorites) {
+            const article = await this.dbHandler.getDocumentByProp("Article", {
+              _id: articleId
+            });
 
-          if (favorites.length) {
-            for (const articleId of favorites) {
-              const article = await this.dbHandler.getDocumentByProp("Article", {
-                _id: articleId
-              });
+            //isFav is true
+            const params = this._getAndCashArticleInlineKBParams(article, userId, true, isSpec);
 
-              //isFav is true
-              const params = this._getAndCashArticleInlineKBParams(article, userId, true, isSpec);
-
-              await this.botHandler.sendArticle(chatId, article,{
-                reply_markup: {
-                  inline_keyboard: _.get_inline_keyboard_articles({
-                    ...params,
-                  }),
-                }
-              })
-                  .then(msgResult => this._cashMsg(userId, this._getMsgResultData(msgResult)));
-            }
-          }
-          else {
-            await this.botHandler._sendMessage(chatId, `Список *Избранного* пуст...`)
+            await this.botHandler.sendArticle(chat_id, article,{
+              reply_markup: {
+                inline_keyboard: _.get_inline_keyboard_articles({
+                  ...params,
+                }),
+              }
+            })
                 .then(msgResult => this._cashMsg(userId, this._getMsgResultData(msgResult)));
           }
         }
-        catch (e) {
-          console.error(e, "error at [mainMenu.favorite]: ");
+        else {
+          await this.botHandler._sendMessage(chat_id, `Список *Избранного* пуст...`)
+              .then(msgResult => this._cashMsg(userId, this._getMsgResultData(msgResult)));
         }
       },
       [topicsMenu.back]: async () => {
-/*        await this.botHandler._sendMessage(chatId, "На главное меню:", {
+        await this.botHandler._sendMessage(chat_id, "Главное меню:", {
+          reply_markup: {
+            keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
+            resize_keyboard: true
+          }
+        })
+            .then(msgResult => this._updateKbMsgCash(userId, this._getMsgResultData(msgResult)));
+
+/*        const userIdCash = this._getUserIdCash(userId);
+        const kbMsgCash = userIdCash.getKBMsgCash();
+        await this.botHandler.editMessageText("На главное меню:", {
+          chat_id: kbMsgCash.chat_id,
+          message_id: kbMsgCash.message_id,
           reply_markup: {
             keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
             resize_keyboard: true
           }
         });*/
-            //.then(msgResult => this._cashSentMsgResult(userId, msgResult));
-        const userIdCash = this._getUserIdCash(userId);
-        const { chatId, msgId } = userIdCash.getKBMsgCash();
 
-        await this.botHandler.editMessageText("На главное меню:", {
-          chat_id: chatId,
-          message_id: msgId,
-          reply_markup: {
-            keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
-            resize_keyboard: true
-          }
-        });
       }
     };
 
@@ -244,10 +236,10 @@ module.exports = class BotArticles {
 
   async handleMessage(msg) {
     try {
-      const msgId = msg.message_id;
-      const chatId = msg.chat.id;
-      const userId = msg.from.id;
-      const isSpec = userId.toString() === specId.toString();
+      const message_id = msg.message_id;
+      const chat_id = msg.chat.id;
+      const userId = msg.from.id.toString(); //converting from number
+      const isSpec = userId === specId.toString();
 
       const { first_name, last_name, is_bot, language_code } = msg.from;
 
@@ -282,34 +274,35 @@ module.exports = class BotArticles {
         this.usersCash.set(userId, userIdCash);
 
         //cashing message
-        this._cashMsg(userId, { chatId, msgId });
+        this._cashMsg(userId, { chat_id, message_id });
 
         //cleaning previous cashed messages... (now it is only one record with "/start" cased message)...
         await Promise.all([
           this._userMsgCashClean(userId),
-          this.botHandler.welcomeUser({ chatId, user, userLastVisit }, {
+          this.botHandler.welcomeUser({ chat_id, user, userLastVisit }, {
             reply_markup: {
               keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
               resize_keyboard: true
             }
           })
               .then(msgRes => {
-                this._cashKbMsg(userId, this._getMsgResultData(msgRes));
+                this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
               })
         ]);
       }
       else if (this.regularKeys.includes(msg.text)) {
         //const userIdCash = this.usersCash.get(userId);
-        //this._cashMsg(userId, { chatId, msgId });
+        this._cashMsg(userId, { chat_id, message_id });
 
+        //cleaning previous messages...
         await this._userMsgCashClean(userId);
 
-        //userIdCash && userIdCash.cashMsg(chatId, msgId);
+        //userIdCash && userIdCash.cashMsg(chat_id, message_id);
 
-        await this.handleRegularKey(chatId, userId, msgId, msg.text);
+        await this.handleRegularKey(chat_id, message_id, userId, msg.text);
 
 /*        await Promise.all([
-          this.handleRegularKey(chatId, userId, msgId, msg.text),
+          this.handleRegularKey(chat_id, userId, message_id, msg.text),
           this._userMsgCashClean(userId),
         ])*/
       }
@@ -318,6 +311,8 @@ module.exports = class BotArticles {
         const foundIndex = topicsKeys.indexOf(msg.text);
 
         if (foundIndex !== -1) {
+          this._cashMsg(userId, { chat_id, message_id });
+
           const { typeId } = this.topicsCollection[foundIndex];
           const collectionArticles = await this.dbHandler.getCollectionByModel(
               "Article",
@@ -330,20 +325,20 @@ module.exports = class BotArticles {
                 }
               });
 
-          await this._userMsgCashClean(userId);
-
           const userFavorites = await this.dbHandler.getDocumentByProp("User", {
             userId
           })
               .then(doc => doc.favorites);
 
+
           if (collectionArticles.length) {
+            await this._userMsgCashClean(userId);
 
             for (const article of collectionArticles) {
               const isFav = userFavorites.includes(article._id);
               const params = this._getAndCashArticleInlineKBParams(article, userId, isFav, isSpec);
 
-              await this.botHandler.sendArticle(chatId, article, {
+              await this.botHandler.sendArticle(chat_id, article, {
                 reply_markup: {
                   inline_keyboard: _.get_inline_keyboard_articles({
                     ...params,
@@ -354,7 +349,7 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler._sendMessage(chatId, "В коллекции пусто...")
+            await this.botHandler._sendMessage(chat_id, "В коллекции пусто...")
                 .then(msgRes => this._cashMsg(userId, this._getMsgResultData(msgRes)));
           }
         }
@@ -373,7 +368,7 @@ module.exports = class BotArticles {
 
               log(activeProp, "activeProp at handlingMessage: ");
 
-              await this.botHandler.confirmAddArticleAction(chatId, msgId, userId, {
+              await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
                 activeProp,
                 activePropValue: msg.text,
               })
@@ -382,31 +377,33 @@ module.exports = class BotArticles {
             else {
               log(msg.text, "msg.text on the out...");
 
-              this._cashMsg(userId, { chatId, msgId });
+              this._cashMsg(userId, { chat_id, message_id });
 
               log(userIdCash.getMsgCash(), "userIdCash.getMsgCash(): ");
 
-              //userIdCash.cashMsg(chatId, msgId);
-              await this.botHandler._sendMessage(chatId, `Я не понял... 
-              \nСделай выбор из меню...\nНажми на квадратный значок клавиатуры справа...`)
+              await this._userMsgCashClean(userId);
+
+              //userIdCash.cashMsg(chat_id, message_id);
+              await this.botHandler._sendMessage(chat_id, `Сделай выбор из меню...`, {
+                reply_markup: {
+                  keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
+                  resize_keyboard: true
+                }
+              })
                   .then(msgRes => {
                     this._cashMsg(userId, this._getMsgResultData(msgRes));
-
-                    setTimeout(() => {
-                      this._userMsgCashClean(userId);
-                    }, 2000);
                   });
 
-              //userIdCash.cashMsg(chatId, msgId);
+              //userIdCash.cashMsg(chat_id, message_id);
               //ToDO: to realise msgCash
             }
           }
           else {
-            await this.botHandler._sendMessage(chatId, "Нажмите на кнопку *Меню* и выберите *Cтарт*...")
+            await this.botHandler._sendMessage(chat_id, "Нажмите на кнопку *Меню* и выберите *Cтарт*...")
                 .then(msgRes => {
                   setTimeout(() => {
                     this.botHandler.deleteMessage(...Object.values(this._getMsgResultData(msgRes)));
-                    this.botHandler.deleteMessage(chatId, msgId);
+                    this.botHandler.deleteMessage(chat_id, message_id);
                   }, 1000);
                 });
 
@@ -423,8 +420,8 @@ module.exports = class BotArticles {
   async handleQuery(query) {
     try {
       const userId = query.from.id.toString();
-      const chatId = query.message.chat.id.toString();
-      const msgId = query.message.message_id.toString();
+      const chat_id = query.message.chat.id;
+      const message_id = query.message.message_id;
 
       const data = JSON.parse(query.data);
       const actionType = data?.tp || null;
@@ -438,7 +435,7 @@ module.exports = class BotArticles {
         [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
           if (isConfirmed) {
             //changing inline_keyboard to the cashed inline_keyboard...
-            await this.useCashedInlineKB(articleId, chatId, msgId, userId, {
+            await this.useCashedInlineKB(articleId, chat_id, message_id, userId, {
               isFav: true,
             });
 
@@ -457,13 +454,13 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
+            await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
           }
         },
         [ARTICLES.ARTICLE_FAVORITE_REMOVE]: async () => {
           try {
             if (isConfirmed) {
-              await this.useCashedInlineKB(articleId, chatId, msgId, userId,{
+              await this.useCashedInlineKB(articleId, chat_id, message_id, userId,{
                 isFav: false,
               });
 
@@ -482,7 +479,7 @@ module.exports = class BotArticles {
               }
             }
             else {
-              await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
+              await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
             }
           }
           catch (e) {
@@ -496,7 +493,7 @@ module.exports = class BotArticles {
 
             }
             else {
-              await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
+              await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
             }
           }
           catch (e) {
@@ -510,7 +507,7 @@ module.exports = class BotArticles {
               log("ARTICLE_EDIT confirmed...");
             }
             else {
-              await this.botHandler.confirmArticleAction(chatId, msgId, userId, data);
+              await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
             }
           }
           catch (e) {
@@ -520,7 +517,7 @@ module.exports = class BotArticles {
         },
         [ARTICLES.ARTICLE_CANCEL]: async () => {
           try {
-            await this.useCashedInlineKB(articleId, chatId, msgId, userId);
+            await this.useCashedInlineKB(articleId, chat_id, message_id, userId);
           }
           catch (e) {
             console.error("error at actionTypesArticlesHandles, ARTICLES.ARTICLE_CANCEL: ", e);
@@ -548,14 +545,14 @@ module.exports = class BotArticles {
             }));
 
             await this.botHandler.editMessageText("Выберите тематику для новой статьи: ", {
-              chat_id: chatId,
-              message_id: msgId,
+              chat_id,
+              message_id,
               reply_markup: {
                 inline_keyboard: _.get_inline_keyboard_topics(topicsDataArr),
               }
             })
           } else {
-            await this.botHandler._sendMessage(chatId, `Введите ${ addArticleMenu[propVal] }`);
+            await this.botHandler._sendMessage(chat_id, `Введите ${ addArticleMenu[propVal] }`);
           }
           //log(aDraft, "aDraft: ");
 
@@ -583,7 +580,7 @@ module.exports = class BotArticles {
               this.botHandler._answerCallbackQuery(
                   query.id,
                   `Сохранено в тематике: "${ targetObj.name }"`),
-              this.botHandler.checkAndSendMessageWithEmptyADraftProps(chatId, msgId, query.id, aDraft),
+              this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft),
             ]);
           } else {
             await this.botHandler._answerCallbackQuery(
@@ -598,14 +595,14 @@ module.exports = class BotArticles {
         [ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL]: async () => {
           const aDraft = this._getUserADraft(userId);
           aDraft.activeProp = null;
-          await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chatId, msgId, query.id, aDraft);
+          await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft);
         },
         [ADD_ARTICLE.ADD_ARTICLE_SUBMIT]: async () => {
           log("submit...");
           //TODO: to check all props to be filled;
         },
         [ADD_ARTICLE.ADD_ARTICLE_CANCEL]: async () => {
-          await this.botHandler.deleteMessage(chatId, msgId);
+          await this.botHandler.deleteMessage(chat_id, message_id);
         },
       };
 
@@ -627,7 +624,7 @@ module.exports = class BotArticles {
     }
   }
 
-  async useCashedInlineKB (articleId, chatId, msgId, userId, params={}) {
+  async useCashedInlineKB (articleId, chat_id, message_id, userId, params={}) {
     //getting the cashed data for creating the inline_keyboard of a particular message with the Article
     const auxData = this._getInlineKeyboardData(userId, articleId);
 
@@ -637,8 +634,8 @@ module.exports = class BotArticles {
         ...params,
       })
     }, {
-      chat_id: chatId,
-      message_id: msgId
+      chat_id,
+      message_id
     });
   }
 

@@ -118,7 +118,10 @@ module.exports = class DBHandler {
       last_visit, favorites
     } = incomingUser;
 
-    const user = await this.User.findOne({ userId }); //5764807790
+    log(userId, "userId in checkUserAndSave:");
+    log(typeof userId, "typeof userId: ");
+
+    const user = await this.User.findOne({ userId }); //'5764807790' string
 
     if (user) {
       let userLastVisit = user.last_visit;

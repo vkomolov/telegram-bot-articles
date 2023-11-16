@@ -40,7 +40,7 @@ module.exports = class ArticleDraft {
     //log(propName, "propName at activeProp: ");
     //log(this.projectArticleData, "this.projectArticleData");
 
-    if (propName in this.projectArticleData) {
+    if (propName in this.projectArticleData || propName === null) {
       this._activeProp = propName;
 
       log(this._activeProp, "this._activeProp: ");

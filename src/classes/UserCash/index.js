@@ -17,22 +17,34 @@ module.exports = class UserCash {
     this.articlesInlineKBParams.set(articleId, params);
   }
 
-  cashInKBMsg ({ chat_id, message_id }) {
-    Object.assign(this.msgCash.inline_kb_msg, {
-      chat_id,
-      message_id
-    })
+  cashInKBMsg (inKBMsgData = null) {
+    if (inKBMsgData && inKBMsgData.chat_id && inKBMsgData.message_id) {
+      const { chat_id, message_id } = inKBMsgData;
+
+      Object.assign(this.msgCash.inline_kb_msg, {
+        chat_id,
+        message_id
+      });
+    } else {
+      this.msgCash.inline_kb_msg = {};
+    }
   }
 
   getInKBMsgCash () {
     return this.msgCash.inline_kb_msg;
   }
 
-  cashKBMsg ({ chat_id, message_id }) {
-    Object.assign(this.msgCash.kb_msg, {
-      chat_id,
-      message_id
-    })
+  cashKBMsg (kbMsgData = null) {
+    if (kbMsgData && kbMsgData.chat_id && kbMsgData.message_id) {
+      const { chat_id, message_id } = kbMsgData;
+
+      Object.assign(this.msgCash.kb_msg, {
+        chat_id,
+        message_id
+      });
+    } else {
+      this.msgCash.kb_msg = {};
+    }
   }
 
   getKBMsgCash () {

@@ -73,18 +73,40 @@ module.exports = class BotArticles {
     return userIdCash.getArticleDraft();
   }
 
-  //{ chat_id, message_id }
-  /**
-   *
-   * @param userId
-   * @param { Object } msgData
-   * @private
-   */
   _cashMsg (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
     userIdCash.cashMsg(msgData);
 
     log(userIdCash.getMsgCash(), "userCash cashed...");
+  }
+
+  _cashInKbMsg (userId, msgData) {
+    const userIdCash = this._getUserIdCash(userId);
+    userIdCash.cashInKBMsg(msgData);
+
+    log(userIdCash.getKBMsgCash(), "inline keyboard cashed...")
+  }
+
+  _getMsgResultData (sentMsgResult) {
+    if (sentMsgResult?.chat?.id && sentMsgResult?.message_id) {
+      return {
+        chat_id: sentMsgResult.chat.id,
+        message_id: sentMsgResult.message_id,
+      };
+    }
+    else {
+      throw new Error(`no necessary properties found: chat.id, message_id...`);
+    }
+  }
+
+  _activePropReset (userId) {
+    const userIdCash = this.usersCash.get(userId);
+    if (userIdCash) {
+      const aDraft = userIdCash.getArticleDraft();
+      if (aDraft && aDraft.activeProp) {
+        aDraft.activeProp = null;
+      }
+    }
   }
 
   async _updateKbMsgCash (userId, msgData) {
@@ -107,22 +129,20 @@ module.exports = class BotArticles {
     }
   }
 
-  _cashInKbMsg (userId, msgData) {
+  async _userInKBMsgCashClean (userId) {
     const userIdCash = this._getUserIdCash(userId);
-    userIdCash.cashInKBMsg(msgData);
+    const inKbMsgCash = userIdCash.getInKBMsgCash();
 
-    log(userIdCash.getKBMsgCash(), "inline keyboard cashed...")
-  }
+    if (inKbMsgCash.chat_id && inKbMsgCash.message_id) {
+      //cashing for future delete
+      userIdCash.cashMsg({
+        chat_id: inKbMsgCash.chat_id,
+        message_id: inKbMsgCash.message_id
+      });
+      //await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
+      userIdCash.cashInKBMsg(); //with empty args it clears the cash
 
-  _getMsgResultData (sentMsgResult) {
-    if (sentMsgResult?.chat?.id && sentMsgResult?.message_id) {
-      return {
-        chat_id: sentMsgResult.chat.id,
-        message_id: sentMsgResult.message_id,
-      };
-    }
-    else {
-      throw new Error(`no necessary properties found: chat.id, message_id...`);
+      log(userIdCash.getInKBMsgCash(), "_userInKBMsgCashClean/ userIdCash.getInKBMsgCash(): ");
     }
   }
 
@@ -134,6 +154,23 @@ module.exports = class BotArticles {
       await this.botHandler.deleteMessage(chat_id, message_id);
     }
 
+    userIdCash.msgCashClean();
+  }
+
+  async _userMsgCashCleanAll (userId) {
+    const userIdCash = this._getUserIdCash(userId);
+    const msgCashArr = userIdCash.getMsgCash();
+    const msgKBCashArr = userIdCash.getKBMsgCash();
+    const msgInKBCashArr = userIdCash.getInKBMsgCash();
+
+    const auxMsgCash = msgCashArr.concat(msgKBCashArr, msgInKBCashArr).filter(obj => !!obj.chat_id);
+
+    for (const { chat_id, message_id } of auxMsgCash) {
+      await this.botHandler.deleteMessage(chat_id, message_id);
+    }
+
+    userIdCash.cashKBMsg();
+    userIdCash.cashInKBMsg();
     userIdCash.msgCashClean();
   }
 
@@ -155,17 +192,6 @@ module.exports = class BotArticles {
                 this._userMsgCashClean(userId);
               }, 700);
             });
-
-
-/*        await this.botHandler.editMessageText("Выберите тему статей:", {
-          chat_id: kbMsgCash.chat_id,
-          message_id: kbMsgCash.message_id,
-          reply_markup: {
-            keyboard: this.topicsKeyboardMarkup,
-            resize_keyboard: true
-          }
-        })*/
-
       },
       [mainMenu.articleAdd]: async () => {
         const userIdCash = this._getUserIdCash(userId);
@@ -181,10 +207,18 @@ module.exports = class BotArticles {
             inline_keyboard: _.get_inline_keyboard_articles_add(),
           }
         })
-            .then(msgResult => this._cashInKbMsg(userId, this._getMsgResultData(msgResult)));
+            .then(async msgResult => {
+              this._cashInKbMsg(userId, this._getMsgResultData(msgResult));
+              await setTimeout(() => {
+                this._userMsgCashClean(userId);
+              }, 700);
+            });
 
       },
       [mainMenu.favorite]: async () => {
+        this._userInKBMsgCashClean(userId);
+        await this._userMsgCashClean(userId);
+
         const user = await this.dbHandler.getDocumentByProp(
             "User",
             {
@@ -209,7 +243,9 @@ module.exports = class BotArticles {
                 }),
               }
             })
-                .then(msgResult => this._cashMsg(userId, this._getMsgResultData(msgResult)));
+                .then(msgResult => {
+                  this._cashMsg(userId, this._getMsgResultData(msgResult))
+                });
           }
         }
         else {
@@ -230,19 +266,6 @@ module.exports = class BotArticles {
                 this._userMsgCashClean(userId);
               }, 700);
             });
-
-
-/*        const userIdCash = this._getUserIdCash(userId);
-        const kbMsgCash = userIdCash.getKBMsgCash();
-        await this.botHandler.editMessageText("На главное меню:", {
-          chat_id: kbMsgCash.chat_id,
-          message_id: kbMsgCash.message_id,
-          reply_markup: {
-            keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
-            resize_keyboard: true
-          }
-        });*/
-
       }
     };
 
@@ -284,6 +307,12 @@ module.exports = class BotArticles {
           //log(user, "user updated: ");
         }
 
+        const userIdCashPrev = this.usersCash.get(userId);
+        if (userIdCashPrev) {
+          //cleaning the messages of the previous session
+          await this._userMsgCashCleanAll(userId);
+        }
+
         const userIdCash = new UserCash(userId);
         //creating new cash fot userId
 
@@ -300,6 +329,7 @@ module.exports = class BotArticles {
           }
         })
             .then(async msgRes => {
+              //changing the message with the keyboard
               await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
               await setTimeout(() => {
                 this._userMsgCashClean(userId);
@@ -310,26 +340,21 @@ module.exports = class BotArticles {
         //await this._userMsgCashClean(userId);
       }
       else if (this.regularKeys.includes(msg.text)) {
-        //const userIdCash = this.usersCash.get(userId);
+        //resetting activeProp if entering the value to the property of aDraft is canceled
+        this._activePropReset(userId);
+
+        //resetting previous messages with inline keyboards
+        this._userInKBMsgCashClean(userId);
+        //cashing incoming message for the future cleaning
         this._cashMsg(userId, { chat_id, message_id });
-
-        //userIdCash && userIdCash.cashMsg(chat_id, message_id);
-
         await this.handleRegularKey(chat_id, message_id, userId, msg.text);
-
-        //await this._userMsgCashClean(userId);
-
-
-/*        await Promise.all([
-          this.handleRegularKey(chat_id, userId, message_id, msg.text),
-          this._userMsgCashClean(userId),
-        ])*/
       }
       else {
         const topicsKeys = this.topicsCollection.map(({ name }) => name);
         const foundIndex = topicsKeys.indexOf(msg.text);
 
         if (foundIndex !== -1) {
+          this._activePropReset(userId);
           this._cashMsg(userId, { chat_id, message_id });
 
           const { typeId } = this.topicsCollection[foundIndex];
@@ -385,7 +410,7 @@ module.exports = class BotArticles {
             if (aDraft && aDraft.activeProp) {
               const { activeProp } = aDraft;
 
-              log(activeProp, "activeProp at handlingMessage: ");
+              log(activeProp, "activeProp at handlingMessage : ");
 
               await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
                 activeProp,
@@ -406,9 +431,11 @@ module.exports = class BotArticles {
                   resize_keyboard: true
                 }
               })
-                  .then(msgRes => {
-                    this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
-                    this._userMsgCashClean(userId);
+                  .then(async msgRes => {
+                    await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+                    setTimeout(() => {
+                      this._userMsgCashClean(userId);
+                    }, 700);
                   });
 
               //userIdCash.cashMsg(chat_id, message_id);
@@ -421,7 +448,7 @@ module.exports = class BotArticles {
                   setTimeout(() => {
                     this.botHandler.deleteMessage(...Object.values(this._getMsgResultData(msgRes)));
                     this.botHandler.deleteMessage(chat_id, message_id);
-                  }, 1000);
+                  }, 700);
                 });
 
             log("message received without userIdCash...");
@@ -552,7 +579,7 @@ module.exports = class BotArticles {
 
           //log(propVal, "propVal: ");
 
-          //catching with .set activeProp(propName)
+          //using .set activeProp(propName)
           aDraft.activeProp = propVal;
 
           if (propVal.toString() === "typeId") {

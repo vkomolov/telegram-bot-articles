@@ -215,7 +215,7 @@ module.exports = class BotHandler {
     const emptyPropsArr = aDraft.getEmptyProps();
     const msgText = !emptyPropsArr.length
         ? "Все поля заполнены"
-        : `Остались пустые поля: \n${ emptyPropsArr.join(`,\n`) }`;
+        : `Остались пустые поля: \n*${ emptyPropsArr.join(`,\n`) }*`;
 
     await this.editMessageText(msgText, {
       chat_id,

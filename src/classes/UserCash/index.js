@@ -51,7 +51,6 @@ module.exports = class UserCash {
     return this.msgCash.kb_msg;
   }
 
-
   cashMsg({ chat_id, message_id }) {
     this.msgCash.msg_cash.add({
       chat_id,
@@ -84,6 +83,10 @@ module.exports = class UserCash {
 
   createArticleDraft() {
     this.aDraft = new ArticleDraft();
+  }
+
+  clearArticleDraft() {
+    this.aDraft = null;
   }
 };
 

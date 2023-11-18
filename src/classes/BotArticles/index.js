@@ -77,6 +77,8 @@ module.exports = class BotArticles {
     const userIdCash = this._getUserIdCash(userId);
     userIdCash.cashMsg(msgData);
 
+    log(msgData, "msgData at _cashMsg: ");
+
     log(userIdCash.getMsgCash(), "userCash cashed...");
   }
 
@@ -115,9 +117,12 @@ module.exports = class BotArticles {
       ...userIdCash.getKBMsgCash()
     };
 
-    await userIdCash.cashKBMsg({...msgData});
+    log(kbMsgCash, "kbMsgCash: ");
+    log(msgData, "msgData at _updateKbMsgCash : ");
 
-    if (kbMsgCash.chat_id && kbMsgCash.message_id) {
+    userIdCash.cashKBMsg({...msgData});
+
+    if (kbMsgCash && kbMsgCash.chat_id && kbMsgCash.message_id) {
       //cashing for future delete
       userIdCash.cashMsg({
         chat_id: kbMsgCash.chat_id,
@@ -125,36 +130,50 @@ module.exports = class BotArticles {
       });
       //await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
 
-      log(userIdCash.getMsgCash(), "_updateKbMsgCash/ userIdCash.getMsgCash(): ")
+      log(userIdCash.getMsgCash(), "_updateKbMsgCash/ userIdCash.getMsgCash() : ")
     }
   }
 
   async _userInKBMsgCashClean (userId) {
-    const userIdCash = this._getUserIdCash(userId);
-    const inKbMsgCash = userIdCash.getInKBMsgCash();
+    const userIdCash = this.usersCash.get(userId);
+    if (userIdCash) {
+      //const { chat_id, message_id } = userIdCash.getInKBMsgCash();
+      const inKBMsgCash = userIdCash.getInKBMsgCash();
 
-    if (inKbMsgCash.chat_id && inKbMsgCash.message_id) {
-      //cashing for future delete
-      userIdCash.cashMsg({
-        chat_id: inKbMsgCash.chat_id,
-        message_id: inKbMsgCash.message_id
-      });
-      //await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
-      userIdCash.cashInKBMsg(); //with empty args it clears the cash
+      if (inKBMsgCash && inKBMsgCash.chat_id && inKBMsgCash.message_id) {
+        //cashing without arguments for cleaning inKBMsgCash to {}
+        userIdCash.cashInKBMsg();
 
-      log(userIdCash.getInKBMsgCash(), "_userInKBMsgCashClean/ userIdCash.getInKBMsgCash(): ");
+        this._cashMsg(userId, {
+          chat_id: inKBMsgCash.chat_id,
+          message_id: inKBMsgCash.message_id,
+        })
+      }
     }
   }
 
   async _userMsgCashClean (userId) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
+    if (userIdCash) {
+      const msgCashArr = userIdCash.getMsgCash();
 
-    const msgCashArr = userIdCash.getMsgCash();
-    for (const { chat_id, message_id } of msgCashArr) {
-      await this.botHandler.deleteMessage(chat_id, message_id);
+      for (const { chat_id, message_id } of msgCashArr) {
+        try {
+          if (chat_id && message_id) {
+            await this.botHandler.deleteMessage(chat_id, message_id);
+          }
+          else {
+            console.error(`received invalid chat_id: ${ chat_id } and message_id: ${ message_id }`);
+          }
+        }
+        catch (e) {
+          console.error("error at _userMsgCashClean : ", e.message);
+          log(chat_id, "chat_id: ");
+          log(message_id, "message_id: ");
+        }
+      }
+      userIdCash.msgCashClean();
     }
-
-    userIdCash.msgCashClean();
   }
 
   async _userMsgCashCleanAll (userId) {
@@ -190,12 +209,11 @@ module.exports = class BotArticles {
               await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
               await setTimeout(() => {
                 this._userMsgCashClean(userId);
-              }, 700);
+              }, 500);
             });
       },
       [mainMenu.articleAdd]: async () => {
         const userIdCash = this._getUserIdCash(userId);
-
         /**
          * Making the object for the temporal new article to be filled with the required properties
          * Every action for creation article will clean previous params with new object
@@ -208,10 +226,13 @@ module.exports = class BotArticles {
           }
         })
             .then(async msgResult => {
+
+              //log(msgResult, "msgResult: ");
+
               this._cashInKbMsg(userId, this._getMsgResultData(msgResult));
               await setTimeout(() => {
                 this._userMsgCashClean(userId);
-              }, 700);
+              }, 500);
             });
 
       },
@@ -264,7 +285,7 @@ module.exports = class BotArticles {
               await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
               await setTimeout(() => {
                 this._userMsgCashClean(userId);
-              }, 700);
+              }, 500);
             });
       }
     };
@@ -333,7 +354,7 @@ module.exports = class BotArticles {
               await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
               await setTimeout(() => {
                 this._userMsgCashClean(userId);
-              }, 700);
+              }, 500);
             });
 
         //cleaning previous cashed messages... (now it is only one record with "/start" cased message)...
@@ -354,6 +375,7 @@ module.exports = class BotArticles {
         const foundIndex = topicsKeys.indexOf(msg.text);
 
         if (foundIndex !== -1) {
+          //if activeProp then to clean adding value to active prop from article draft menu
           this._activePropReset(userId);
           this._cashMsg(userId, { chat_id, message_id });
 
@@ -401,8 +423,9 @@ module.exports = class BotArticles {
           const userIdCash = this.usersCash.get(userId);
 
           if (userIdCash) {
-            const aDraft = userIdCash.getArticleDraft();
+            this._cashMsg(userId, { chat_id, message_id });
 
+            const aDraft = userIdCash.getArticleDraft();
             /**
              * if article draft property is active in aDraft.activeProp, then to confirm the article draft property
              * to equal the received msg.text
@@ -435,7 +458,7 @@ module.exports = class BotArticles {
                     await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
                     setTimeout(() => {
                       this._userMsgCashClean(userId);
-                    }, 700);
+                    }, 500);
                   });
 
               //userIdCash.cashMsg(chat_id, message_id);
@@ -448,7 +471,7 @@ module.exports = class BotArticles {
                   setTimeout(() => {
                     this.botHandler.deleteMessage(...Object.values(this._getMsgResultData(msgRes)));
                     this.botHandler.deleteMessage(chat_id, message_id);
-                  }, 700);
+                  }, 500);
                 });
 
             log("message received without userIdCash...");
@@ -473,7 +496,7 @@ module.exports = class BotArticles {
       const isConfirmed = data?.ok || null; //true|false is confirmed... null - empty;
       const propVal = data?.val || null;
 
-      log(data, "data: ");
+      log(data, "data : ");
 
       const actionTypesArticlesHandles = {
         [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
@@ -595,57 +618,85 @@ module.exports = class BotArticles {
                 inline_keyboard: _.get_inline_keyboard_topics(topicsDataArr),
               }
             })
-          } else {
-            await this.botHandler._sendMessage(chat_id, `Введите ${ addArticleMenu[propVal] }`);
+          }
+          else {
+            await this.botHandler._sendMessage(chat_id, `Введите ${ addArticleMenu[propVal] }`)
+                .then(msgRes => this._cashMsg(userId, this._getMsgResultData(msgRes)));
           }
           //log(aDraft, "aDraft: ");
 
         },
         [ADD_ARTICLE.ADD_ARTICLE_PROP_SET]: async () => {
-          const aDraft = this._getUserADraft(userId);
+          const userIdCash = this._getUserIdCash(userId);
+          const aDraft = userIdCash.getArticleDraft();
+          const inKBMsgCash = userIdCash.getInKBMsgCash();
           const { activeProp } = aDraft;
+          const activePropValue = aDraft.getADraftData()[activeProp];
 
-          if (!propVal) {
-            throw new Error(`Error at ADD_ARTICLE.ADD_ARTICLE_PROP_SET with invalid proVal: ${ propVal }`);
-          }
-          if (!activeProp) {
-            throw new Error(`Error at ADD_ARTICLE.ADD_ARTICLE_PROP_SET with invalid activeProp: ${ activeProp }`);
-          }
+          if (activePropValue !== propVal) {
+            log("activePropValue !== propVal");
+            //saving propVal to the aDraft active property
+            //TODO: to validate propVal for each aDraft property
+            aDraft.setActivePropValue(propVal);
 
-          //aDraft.activeProp = propVal;
-          aDraft.setActivePropValue(propVal);
+            let pName;
+            let pVal;
 
-          if (activeProp === "typeId") {
-            const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
+            log(aDraft.projectArticleData, "aDraft.projectArticleData: ");
 
-            log(targetObj, "targetObj:");
+            if (activeProp === "typeId") {
+              const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
+
+              log(targetObj, "targetObj: ");
+
+              pName = targetObj.name;
+              pVal = pName;
+            }
+            else {
+              pName = aDraft.getMenuKey(activeProp);
+              pVal = propVal;
+            }
 
             await Promise.all([
               this.botHandler._answerCallbackQuery(
                   query.id,
-                  `Сохранено в тематике: "${ targetObj.name }"`),
-              this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft),
+                  `В поле "${ pName }" сохранено значение: "${ pVal }"`
+              ),
+              this.botHandler.checkAndSendMessageWithEmptyADraftProps(
+                  inKBMsgCash.chat_id,
+                  inKBMsgCash.message_id,
+                  query.id,
+                  aDraft
+              ),
             ]);
-          } else {
-            await this.botHandler._answerCallbackQuery(
-                //TODO: to use query.id of the aDraft menu
-                query.id,
-                `В поле "${ aDraft.activeProp }" сохранено значение: "${ propVal }"`,
-            );
-          }
 
-          log(aDraft.projectArticleData, "aDraft.projectArticleData: ");
+            await setTimeout(() => {
+              this._userMsgCashClean(userId);
+            }, 500);
+          }
         },
         [ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL]: async () => {
           const aDraft = this._getUserADraft(userId);
-          aDraft.activeProp = null;
+          this._activePropReset(userId);
           await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft);
         },
         [ADD_ARTICLE.ADD_ARTICLE_SUBMIT]: async () => {
-          log("submit...");
+          const aDraft = this._getUserADraft(userId);
+
+          if (aDraft.getEmptyProps().length) {
+            await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft);
+          }
+          else {
+            const aDraftData = aDraft.getADraftData();
+
+            log(aDraftData, "aDraftData: ");
+          }
           //TODO: to check all props to be filled;
         },
         [ADD_ARTICLE.ADD_ARTICLE_CANCEL]: async () => {
+          const userIdCash = this._getUserIdCash(userId);
+          userIdCash.clearArticleDraft();
+
           await this.botHandler.deleteMessage(chat_id, message_id);
         },
       };

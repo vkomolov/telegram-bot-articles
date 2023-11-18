@@ -14,21 +14,31 @@ module.exports = class ArticleDraft {
     this._activeProp = null;
   }
 
+  getMenuKey (propName) {
+    const { addArticleMenu } = _.getMenuKeys();
+    if (propName in addArticleMenu) {
+      return addArticleMenu[propName];
+    }
+    else {
+      throw new Error(`no prop: ${ propName } found in menuKeys...`);
+    }
+  }
 
   getEmptyProps (separ = null) {
     let emptyProps = getEmptyKeys(this.projectArticleData);
     const { addArticleMenu } = _.getMenuKeys();
-    const emptyPropsArr = emptyProps.map(prop => {
-      if (prop in addArticleMenu) {
-        return addArticleMenu[prop];
-      }
-      throw new Error(`no prop: ${ prop } found in menuKeys...`);
-    });
+    const emptyPropsArr = emptyProps.map(prop => this.getMenuKey(prop));
 
     if (separ && separ.length) {
       return emptyPropsArr.join(separ);
     }
     return emptyPropsArr;
+  }
+
+  getADraftData () {
+    return {
+      ...this.projectArticleData,
+    }
   }
 
   get activeProp () {
@@ -48,35 +58,19 @@ module.exports = class ArticleDraft {
   }
 
   setActivePropValue (propVal) {
-    if (this.activeProp) {
+    if (this.activeProp && this.activeProp in this.projectArticleData) {
       //TODO: to validate str...
+
       this.projectArticleData[this.activeProp] = propVal;
     }
     else {
-      throw new Error("the article draft active property is null...");
+      throw new Error("Cannot set value to the active property..., as the article draft active property is null...");
     }
   }
-
-  setProp (paramsObj) {
-    if (Object.keys(paramsObj).length) {
-      Object.keys(paramsObj).forEach(key => {
-        if (key in this.projectArticleData) {
-          this.projectArticleData[key] = paramsObj[key];
-        }
-        else {
-          console.error(`no such property ${ key } found...`);
-        }
-      });
-    }
-    else {
-      console.error("given AProject param is empty...")
-    }
-  }
-
 };
 
 
 ///////////DEV
-function log(it, comments = "value: ") {
+function log(it, comments = "value:") {
   console.log(comments, it);
 }

@@ -20,7 +20,6 @@ const articleSchema = new Schema(
         type: String,
         required: true,
       },
-      rate: Number,
     },
     //{ statics: Object.assign({}, controller) }
     );

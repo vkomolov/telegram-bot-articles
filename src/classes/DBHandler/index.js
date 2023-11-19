@@ -16,7 +16,7 @@ module.exports = class DBHandler {
     this.Topic = Topic;
   }
 
-  async connectDb(options) {
+  async connectDb (options) {
     try {
       this._db = await mongoose.connect(baseUrl, options);
 
@@ -34,7 +34,7 @@ module.exports = class DBHandler {
    *
    * @returns {Promise<*>}
    */
-  async getCollectionByModel(modelName, targetProp = {}, option = {}) {
+  async getCollectionByModel (modelName, targetProp = {}, option = {}) {
     /** option
      * showBy: {
      *   name: 1,
@@ -112,14 +112,11 @@ module.exports = class DBHandler {
    *
    * @returns {Promise<{userData: *, userLastVisit: null}|{userLastVisit: *, user: *}>}
    */
-  async checkUserAndSave(incomingUser, params={}) {
+  async checkUserAndSave (incomingUser, params={}) {
     const {
       userId, first_name, last_name, language_code,
       last_visit, favorites
     } = incomingUser;
-
-    //log(userId, "userId in checkUserAndSave:");
-    //log(typeof userId, "typeof userId: ");
 
     const user = await this.User.findOne({ userId }); //'5764807790' string
 
@@ -134,7 +131,6 @@ module.exports = class DBHandler {
         userLastVisit
       }
     } else {
-
       const newUser = await new this.User(incomingUser).save();
       //TODO: to make validation of the new user properties
 
@@ -146,6 +142,10 @@ module.exports = class DBHandler {
         userLastVisit: null
       }
     }
+  }
+
+  async saveNewArticle (articleData) {
+    return await new this.Article(articleData).save();
   }
 };
 

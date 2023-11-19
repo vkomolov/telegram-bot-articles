@@ -31,7 +31,6 @@ module.exports = class BotArticles {
 
   _getUserIdCash (userId) {
     const userIdCash = this.usersCash.get(userId);
-
     if (!userIdCash) {
       throw new Error(`no user cash with user id: ${ userId } found...`);
     }
@@ -76,17 +75,11 @@ module.exports = class BotArticles {
   _cashMsg (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
     userIdCash.cashMsg(msgData);
-
-    log(msgData, "msgData at _cashMsg: ");
-
-    log(userIdCash.getMsgCash(), "userCash cashed...");
   }
 
   _cashInKbMsg (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
     userIdCash.cashInKBMsg(msgData);
-
-    log(userIdCash.getKBMsgCash(), "inline keyboard cashed...")
   }
 
   _getMsgResultData (sentMsgResult) {
@@ -117,9 +110,6 @@ module.exports = class BotArticles {
       ...userIdCash.getKBMsgCash()
     };
 
-    log(kbMsgCash, "kbMsgCash: ");
-    log(msgData, "msgData at _updateKbMsgCash : ");
-
     userIdCash.cashKBMsg({...msgData});
 
     if (kbMsgCash && kbMsgCash.chat_id && kbMsgCash.message_id) {
@@ -129,8 +119,6 @@ module.exports = class BotArticles {
         message_id: kbMsgCash.message_id
       });
       //await this.botHandler.deleteMessage(kbMsgCash.chat_id, kbMsgCash.message_id);
-
-      log(userIdCash.getMsgCash(), "_updateKbMsgCash/ userIdCash.getMsgCash() : ")
     }
   }
 
@@ -168,8 +156,6 @@ module.exports = class BotArticles {
         }
         catch (e) {
           console.error("error at _userMsgCashClean : ", e.message);
-          log(chat_id, "chat_id: ");
-          log(message_id, "message_id: ");
         }
       }
       userIdCash.msgCashClean();
@@ -226,9 +212,6 @@ module.exports = class BotArticles {
           }
         })
             .then(async msgResult => {
-
-              //log(msgResult, "msgResult: ");
-
               this._cashInKbMsg(userId, this._getMsgResultData(msgResult));
               await setTimeout(() => {
                 this._userMsgCashClean(userId);
@@ -356,9 +339,6 @@ module.exports = class BotArticles {
                 this._userMsgCashClean(userId);
               }, 500);
             });
-
-        //cleaning previous cashed messages... (now it is only one record with "/start" cased message)...
-        //await this._userMsgCashClean(userId);
       }
       else if (this.regularKeys.includes(msg.text)) {
         //resetting activeProp if entering the value to the property of aDraft is canceled
@@ -433,8 +413,6 @@ module.exports = class BotArticles {
             if (aDraft && aDraft.activeProp) {
               const { activeProp } = aDraft;
 
-              log(activeProp, "activeProp at handlingMessage : ");
-
               await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
                 activeProp,
                 activePropValue: msg.text,
@@ -442,8 +420,6 @@ module.exports = class BotArticles {
                   .then(msgRes => this._cashMsg(userId, this._getMsgResultData(msgRes)));
             }
             else {
-              log(msg.text, "msg.text on the out...");
-
               this._cashMsg(userId, { chat_id, message_id });
               //await this._userMsgCashClean(userId);
 
@@ -473,14 +449,12 @@ module.exports = class BotArticles {
                     this.botHandler.deleteMessage(chat_id, message_id);
                   }, 500);
                 });
-
-            log("message received without userIdCash...");
           }
         }
       }
     }
     catch (e) {
-      console.error("error at handleMessage", e);
+      console.error("error at handleMessage", e.message);
     }
   }
 
@@ -525,70 +499,48 @@ module.exports = class BotArticles {
           }
         },
         [ARTICLES.ARTICLE_FAVORITE_REMOVE]: async () => {
-          try {
-            if (isConfirmed) {
-              await this.useCashedInlineKB(articleId, chat_id, message_id, userId,{
-                isFav: false,
-              });
+          if (isConfirmed) {
+            await this.useCashedInlineKB(articleId, chat_id, message_id, userId,{
+              isFav: false,
+            });
 
-              const user = await this.dbHandler.getDocumentByProp("User", {
-                userId
-              });
+            const user = await this.dbHandler.getDocumentByProp("User", {
+              userId
+            });
 
-              if (user.favorites.includes(articleId)) {
-                user.favorites = user.favorites.filter(elem => elem !== articleId);
+            if (user.favorites.includes(articleId)) {
+              user.favorites = user.favorites.filter(elem => elem !== articleId);
 
-                await user.save()
-                    .then(() => this.botHandler._answerCallbackQuery(
-                        query.id,
-                        `Статья убрана из Избранных...`
-                    ));
-              }
-            }
-            else {
-              await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
+              await user.save()
+                  .then(() => this.botHandler._answerCallbackQuery(
+                      query.id,
+                      `Статья убрана из Избранных...`
+                  ));
             }
           }
-          catch (e) {
-            console.error("error at actionTypesArticlesHandles, ARTICLES.ARTICLE_FAVORITE_REMOVE: ", e);
+          else {
+            await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
           }
         },
         [ARTICLES.ARTICLE_DELETE]: async () => {
-          try {
-            if (isConfirmed) {
-              log("ARTICLE_DELETE confirmed...");
+          if (isConfirmed) {
+            log("ARTICLE_DELETE confirmed...");
 
-            }
-            else {
-              await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
-            }
           }
-          catch (e) {
-            console.error("error at actionTypesArticlesHandles, ARTICLES.ARTICLE_DELETE: ", e);
+          else {
+            await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
           }
-
         },
         [ARTICLES.ARTICLE_EDIT]: async () => {
-          try {
-            if (isConfirmed) {
-              log("ARTICLE_EDIT confirmed...");
-            }
-            else {
-              await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
-            }
+          if (isConfirmed) {
+            log("ARTICLE_EDIT confirmed...");
           }
-          catch (e) {
-            console.error("error at actionTypesArticlesHandles, ARTICLES.ARTICLE_EDIT: ", e);
+          else {
+            await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
           }
-
         },
         [ARTICLES.ARTICLE_CANCEL]: async () => {
-          try {
-            await this.useCashedInlineKB(articleId, chat_id, message_id, userId);
-          }
-          catch (e) {
-            console.error("error at actionTypesArticlesHandles, ARTICLES.ARTICLE_CANCEL: ", e);
-          }
+          await this.useCashedInlineKB(articleId, chat_id, message_id, userId);
         }
       };
 
@@ -599,8 +551,6 @@ module.exports = class BotArticles {
           if (!propVal) {
             throw new Error(`Error at ADD_ARTICLE.ADD_ARTICLE_PROP with invalid proVal: ${ propVal }`);
           }
-
-          //log(propVal, "propVal: ");
 
           //using .set activeProp(propName)
           aDraft.activeProp = propVal;
@@ -623,57 +573,45 @@ module.exports = class BotArticles {
             await this.botHandler._sendMessage(chat_id, `Введите ${ addArticleMenu[propVal] }`)
                 .then(msgRes => this._cashMsg(userId, this._getMsgResultData(msgRes)));
           }
-          //log(aDraft, "aDraft: ");
-
         },
         [ADD_ARTICLE.ADD_ARTICLE_PROP_SET]: async () => {
           const userIdCash = this._getUserIdCash(userId);
           const aDraft = userIdCash.getArticleDraft();
           const inKBMsgCash = userIdCash.getInKBMsgCash();
           const { activeProp } = aDraft;
-          const activePropValue = aDraft.getADraftData()[activeProp];
+          //saving propVal to the aDraft active property
+          //TODO: to validate propVal for each aDraft property
+          aDraft.setActivePropValue(propVal);
 
-          if (activePropValue !== propVal) {
-            log("activePropValue !== propVal");
-            //saving propVal to the aDraft active property
-            //TODO: to validate propVal for each aDraft property
-            aDraft.setActivePropValue(propVal);
+          let pName;
+          let pVal;
 
-            let pName;
-            let pVal;
-
-            log(aDraft.projectArticleData, "aDraft.projectArticleData: ");
-
-            if (activeProp === "typeId") {
-              const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
-
-              log(targetObj, "targetObj: ");
-
-              pName = targetObj.name;
-              pVal = pName;
-            }
-            else {
-              pName = aDraft.getMenuKey(activeProp);
-              pVal = propVal;
-            }
-
-            await Promise.all([
-              this.botHandler._answerCallbackQuery(
-                  query.id,
-                  `В поле "${ pName }" сохранено значение: "${ pVal }"`
-              ),
-              this.botHandler.checkAndSendMessageWithEmptyADraftProps(
-                  inKBMsgCash.chat_id,
-                  inKBMsgCash.message_id,
-                  query.id,
-                  aDraft
-              ),
-            ]);
-
-            await setTimeout(() => {
-              this._userMsgCashClean(userId);
-            }, 500);
+          if (activeProp === "typeId") {
+            const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
+            pName = targetObj.name;
+            pVal = pName;
           }
+          else {
+            pName = aDraft.getMenuKey(activeProp);
+            pVal = propVal;
+          }
+
+          await Promise.all([
+            this.botHandler._answerCallbackQuery(
+                query.id,
+                `В поле "${ pName }" сохранено значение: "${ pVal }"`
+            ),
+            this.botHandler.checkAndSendMessageWithEmptyADraftProps(
+                inKBMsgCash.chat_id,
+                inKBMsgCash.message_id,
+                query.id,
+                aDraft
+            ),
+          ]);
+
+          await setTimeout(() => {
+            this._userMsgCashClean(userId);
+          }, 500);
         },
         [ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL]: async () => {
           const aDraft = this._getUserADraft(userId);
@@ -689,15 +627,32 @@ module.exports = class BotArticles {
           else {
             const aDraftData = aDraft.getADraftData();
 
-            log(aDraftData, "aDraftData: ");
+            await this.dbHandler.saveNewArticle(aDraftData)
+                .then(() => this.botHandler._answerCallbackQuery(
+                query.id,
+                `Новая Статья сохранена...`
+            ));
+            //await this.botHandler._sendMessage(chat_id)
           }
-          //TODO: to check all props to be filled;
         },
         [ADD_ARTICLE.ADD_ARTICLE_CANCEL]: async () => {
           const userIdCash = this._getUserIdCash(userId);
           userIdCash.clearArticleDraft();
+          const isSpec = userId === specId.toString();
 
           await this.botHandler.deleteMessage(chat_id, message_id);
+          await this.botHandler._sendMessage(chat_id, `Сделай выбор из меню...`, {
+            reply_markup: {
+              keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
+              resize_keyboard: true
+            }
+          })
+              .then(async msgRes => {
+                await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+                setTimeout(() => {
+                  this._userMsgCashClean(userId);
+                }, 500);
+              });
         },
       };
 
@@ -715,7 +670,7 @@ module.exports = class BotArticles {
       }
     }
     catch (e) {
-      console.error("error at handleQuery", e);
+      console.error("error at handleQuery", e.message);
     }
   }
 
@@ -771,7 +726,7 @@ module.exports = class BotArticles {
 
     }
     catch (e) {
-      console.error(e)
+      console.error(e.message);
     }
   }
 };

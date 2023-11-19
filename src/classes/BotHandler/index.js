@@ -213,9 +213,12 @@ module.exports = class BotHandler {
 
   async checkAndSendMessageWithEmptyADraftProps (chat_id, message_id, queryId, aDraft) {
     const emptyPropsArr = aDraft.getEmptyProps();
+
+    const timeMark = new Date().toLocaleTimeString();
+
     const msgText = !emptyPropsArr.length
-        ? "Все поля заполнены"
-        : `Остались пустые поля: \n*${ emptyPropsArr.join(`,\n`) }*`;
+        ? `${ timeMark }: \nВсе поля заполнены. Нажмите "Готово"`
+        : `${ timeMark }: Остались пустые поля: \n*${ emptyPropsArr.join(`,\n`) }*`;
 
     await this.editMessageText(msgText, {
       chat_id,

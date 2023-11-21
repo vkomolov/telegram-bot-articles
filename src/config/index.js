@@ -111,7 +111,6 @@ module.exports.get_inline_keyboard_articles = function ({ link, articleId, isFav
   const favText = isFav ? keyboardKeys.deleteFromFaforites : keyboardKeys.addToFaforites;
   const callBackTypeFav = isFav ? ARTICLES.ARTICLE_FAVORITE_REMOVE : ARTICLES.ARTICLE_FAVORITE_ADD;
 
-
   const regularInlineKeyboardMarkup = [
     [
       {

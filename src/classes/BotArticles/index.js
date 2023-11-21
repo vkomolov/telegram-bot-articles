@@ -536,8 +536,13 @@ module.exports = class BotArticles {
         },
         [ARTICLES.ARTICLE_DELETE]: async () => {
           if (isConfirmed) {
-            log("ARTICLE_DELETE confirmed...");
-
+            await this.dbHandler.deleteArticleById(articleId)
+                .then(() => {
+                  setTimeout(async () => {
+                    await this.botHandler._answerCallbackQuery(query.id, `Ресурс удален...`);
+                    await this.botHandler.deleteMessage(chat_id, message_id);
+                    }, 700);
+                });
           }
           else {
             await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);

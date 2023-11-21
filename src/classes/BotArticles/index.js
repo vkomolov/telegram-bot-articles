@@ -104,6 +104,23 @@ module.exports = class BotArticles {
     }
   }
 
+  async _returnToMainKeyboard (chat_id, userId) {
+    const isSpec = userId === specId.toString();
+
+    await this.botHandler._sendMessage(chat_id, `Главное меню:`, {
+      reply_markup: {
+        keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
+        resize_keyboard: true
+      }
+    })
+        .then(async msgRes => {
+          await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
+          setTimeout(() => {
+            this._userMsgCashClean(userId);
+          }, 500);
+        });
+  }
+
   async _updateKbMsgCash (userId, msgData) {
     const userIdCash = this._getUserIdCash(userId);
     const kbMsgCash = {
@@ -217,7 +234,6 @@ module.exports = class BotArticles {
                 this._userMsgCashClean(userId);
               }, 500);
             });
-
       },
       [mainMenu.favorite]: async () => {
         this._userInKBMsgCashClean(userId);
@@ -258,18 +274,7 @@ module.exports = class BotArticles {
         }
       },
       [topicsMenu.back]: async () => {
-        await this.botHandler._sendMessage(chat_id, "Главное меню:", {
-          reply_markup: {
-            keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
-            resize_keyboard: true
-          }
-        })
-            .then(async msgRes => {
-              await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
-              await setTimeout(() => {
-                this._userMsgCashClean(userId);
-              }, 500);
-            });
+        await this._returnToMainKeyboard(chat_id, userId);
       }
     };
 
@@ -376,7 +381,6 @@ module.exports = class BotArticles {
           })
               .then(doc => doc.favorites);
 
-
           if (collectionArticles.length) {
             await this._userMsgCashClean(userId);
 
@@ -413,40 +417,48 @@ module.exports = class BotArticles {
             if (aDraft && aDraft.activeProp) {
               const { activeProp } = aDraft;
 
-              await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
-                activeProp,
-                activePropValue: msg.text,
-              })
-                  .then(msgRes => this._cashMsg(userId, this._getMsgResultData(msgRes)));
+              if (activeProp === "link") {
+                const inKBMsgCash = userIdCash.getInKBMsgCash();
+
+                log("in link loop");
+                //TODO: to validate link
+                aDraft.setActivePropValue(msg.text);
+
+                await this.botHandler.checkAndSendMessageWithEmptyADraftProps(
+                    inKBMsgCash.chat_id,
+                    inKBMsgCash.message_id,
+                    aDraft
+                );
+
+                await this.botHandler._sendMessage(chat_id, `*Ccылка сохранена...*`)
+                    .then(msgRes => {
+                      this._cashMsg(userId, this._getMsgResultData(msgRes));
+                    });
+
+                await setTimeout(() => {
+                  this._userMsgCashClean(userId);
+                }, 700);
+              }
+              else {
+                await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
+                  activeProp,
+                  activePropValue: msg.text,
+                })
+                    .then(msgRes => this._cashMsg(userId, this._getMsgResultData(msgRes)));
+              }
             }
             else {
-              this._cashMsg(userId, { chat_id, message_id });
-              //await this._userMsgCashClean(userId);
-
-              //userIdCash.cashMsg(chat_id, message_id);
-              await this.botHandler._sendMessage(chat_id, `Сделай выбор из меню...`, {
-                reply_markup: {
-                  keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
-                  resize_keyboard: true
-                }
-              })
-                  .then(async msgRes => {
-                    await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
-                    setTimeout(() => {
-                      this._userMsgCashClean(userId);
-                    }, 500);
-                  });
-
-              //userIdCash.cashMsg(chat_id, message_id);
-              //ToDO: to realise msgCash
+              await this._returnToMainKeyboard(chat_id, userId);
             }
           }
           else {
             await this.botHandler._sendMessage(chat_id, "Нажмите на кнопку *Меню* и выберите *Cтарт*...")
                 .then(msgRes => {
+                  this._cashMsg(userId, this._getMsgResultData(msgRes));
+                  this._cashMsg(userId, { chat_id, message_id });
+
                   setTimeout(() => {
-                    this.botHandler.deleteMessage(...Object.values(this._getMsgResultData(msgRes)));
-                    this.botHandler.deleteMessage(chat_id, message_id);
+                    this._userMsgCashClean(userId);
                   }, 500);
                 });
           }
@@ -604,7 +616,6 @@ module.exports = class BotArticles {
             this.botHandler.checkAndSendMessageWithEmptyADraftProps(
                 inKBMsgCash.chat_id,
                 inKBMsgCash.message_id,
-                query.id,
                 aDraft
             ),
           ]);
@@ -616,43 +627,43 @@ module.exports = class BotArticles {
         [ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL]: async () => {
           const aDraft = this._getUserADraft(userId);
           this._activePropReset(userId);
-          await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft);
+          await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, aDraft);
         },
         [ADD_ARTICLE.ADD_ARTICLE_SUBMIT]: async () => {
           const aDraft = this._getUserADraft(userId);
 
           if (aDraft.getEmptyProps().length) {
-            await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, query.id, aDraft);
+            await this.botHandler.checkAndSendMessageWithEmptyADraftProps(chat_id, message_id, aDraft);
           }
           else {
             const aDraftData = aDraft.getADraftData();
 
             await this.dbHandler.saveNewArticle(aDraftData)
-                .then(() => this.botHandler._answerCallbackQuery(
-                query.id,
-                `Новая Статья сохранена...`
-            ));
-            //await this.botHandler._sendMessage(chat_id)
+                .then(async () => {
+                  const userIdCash = this._getUserIdCash(userId);
+                  userIdCash.clearArticleDraft();
+                  //inline add article menu will be cashed then removed on
+                  this._cashMsg(userId, { chat_id, message_id });
+
+                  await this._returnToMainKeyboard(chat_id, userId);
+                  await this.botHandler._answerCallbackQuery(
+                      query.id,
+                      `*Новая Статья сохранена...*`
+                  );
+                });
           }
         },
         [ADD_ARTICLE.ADD_ARTICLE_CANCEL]: async () => {
           const userIdCash = this._getUserIdCash(userId);
           userIdCash.clearArticleDraft();
-          const isSpec = userId === specId.toString();
 
-          await this.botHandler.deleteMessage(chat_id, message_id);
-          await this.botHandler._sendMessage(chat_id, `Сделай выбор из меню...`, {
-            reply_markup: {
-              keyboard: _.get_regular_keyboard_markup(isSpec, "mainMenu"),
-              resize_keyboard: true
-            }
-          })
-              .then(async msgRes => {
-                await this._updateKbMsgCash(userId, this._getMsgResultData(msgRes));
-                setTimeout(() => {
-                  this._userMsgCashClean(userId);
-                }, 500);
-              });
+          //await this.botHandler.deleteMessage(chat_id, message_id);
+          await this._cashMsg(userId, { chat_id, message_id });
+          await this.botHandler._answerCallbackQuery(
+              query.id,
+              `Новая статья отменена...`
+          );
+          await this._returnToMainKeyboard(chat_id, userId);
         },
       };
 

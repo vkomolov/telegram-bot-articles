@@ -211,7 +211,7 @@ module.exports = class BotHandler {
     })
   }
 
-  async checkAndSendMessageWithEmptyADraftProps (chat_id, message_id, queryId, aDraft) {
+  async checkAndSendMessageWithEmptyADraftProps (chat_id, message_id, aDraft) {
     const emptyPropsArr = aDraft.getEmptyProps();
 
     const timeMark = new Date().toLocaleTimeString();

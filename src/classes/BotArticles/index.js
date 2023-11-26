@@ -548,14 +548,6 @@ module.exports = class BotArticles {
             await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
           }
         },
-        [ARTICLES.ARTICLE_EDIT]: async () => {
-          if (isConfirmed) {
-            log("ARTICLE_EDIT confirmed...");
-          }
-          else {
-            await this.botHandler.confirmArticleAction(chat_id, message_id, userId, data);
-          }
-        },
         [ARTICLES.ARTICLE_CANCEL]: async () => {
           await this.useCashedInlineKB(articleId, chat_id, message_id, userId);
         }
@@ -605,6 +597,9 @@ module.exports = class BotArticles {
 
           if (activeProp === "typeId") {
             const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
+
+            log(targetObj, "targetObj at active 'typeId': ");
+
             pName = targetObj.name;
             pVal = pName;
           }

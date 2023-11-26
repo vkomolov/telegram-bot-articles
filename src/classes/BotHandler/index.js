@@ -215,7 +215,7 @@ module.exports = class BotHandler {
     const emptyPropsArr = aDraft.getEmptyProps();
 
     const timeMark = new Date().toLocaleTimeString();
-
+    //telegram rejects the same message with editMessageText: here we use time mark for editing the same message
     const msgText = !emptyPropsArr.length
         ? `${ timeMark }: \nВсе поля заполнены. Нажмите "Готово"`
         : `${ timeMark }: Остались пустые поля: \n*${ emptyPropsArr.join(`,\n`) }*`;

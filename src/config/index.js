@@ -12,7 +12,6 @@ const keyboardKeys = {
   confirm: "Подтвердить",
   cancel: "Отмена",
   submit: "Готово",
-  edit: "Редактировать",
   delete: "Удалить",
   addArticleName: "Название статьи",
   addArticleTypeId: "Тема статьи",
@@ -59,7 +58,6 @@ function getActionTypes() {
       ARTICLE_FAVORITE_REMOVE: "AFR",
       ARTICLE_FAVORITE_TOGGLE: "AFT",
       ARTICLE_ADD: "AA",
-      ARTICLE_EDIT: "AE",
       ARTICLE_DELETE: "AD",
       ARTICLE_CANCEL: "AC",
     },
@@ -130,14 +128,6 @@ module.exports.get_inline_keyboard_articles = function ({ link, articleId, isFav
 
   const specInlineKeyboardMarkup = [
     [
-      {
-        text: keyboardKeys.edit,
-        callback_data: JSON.stringify({
-          tp: ARTICLES.ARTICLE_EDIT,
-          aId: articleId,
-          ok: false,
-        })
-      },
       {
         text: keyboardKeys.delete,
         callback_data: JSON.stringify({

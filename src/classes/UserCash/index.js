@@ -17,7 +17,22 @@ module.exports = class UserCash {
     this.articlesInlineKBParams.set(articleId, params);
   }
 
-  cashInKBMsg (inKBMsgData = null) {
+  cashOrCleanKbMsg (kbMsgData = null) {
+    if (kbMsgData && kbMsgData.chat_id && kbMsgData.message_id) {
+      const { chat_id, message_id } = kbMsgData;
+
+      //re-writing new message with keyboard data
+      Object.assign(this.msgCash.kb_msg, {
+        chat_id,
+        message_id
+      });
+    } else {
+      //cleaning kb_msg if no arguments
+      this.msgCash.kb_msg = {};
+    }
+  }
+
+  cashOrCleanInKbMsg (inKBMsgData = null) {
     if (inKBMsgData && inKBMsgData.chat_id && inKBMsgData.message_id) {
       const { chat_id, message_id } = inKBMsgData;
 
@@ -30,38 +45,51 @@ module.exports = class UserCash {
     }
   }
 
-  getInKBMsgCash () {
-    return this.msgCash.inline_kb_msg;
-  }
+  cashOrCleanMsg(msgData, toClean = false) {
+    if (msgData && msgData.chat_id && msgData.message_id) {
+      const { chat_id, message_id } = msgData;
 
-  cashKBMsg (kbMsgData = null) {
-    if (kbMsgData && kbMsgData.chat_id && kbMsgData.message_id) {
-      const { chat_id, message_id } = kbMsgData;
+      if (toClean) {
+        if (this.msgCash.msg_cash.has(msgData)) {
+          this.msgCash.msg_cash.delete(msgData);
+        }
+        else {
+          console.error(`the message data with chat_id: ${ chat_id }, message_id: ${ message_id } 
+          is not found at UserCash.cashOrCleanMsg...`);
+        }
+      }
+      else {
+        log(this.msgCash.msg_cash.has({
+          chat_id,
+          message_id
+        }), `is message data exists with chat_id: ${ chat_id }, message_id: ${ message_id }`);
+        log(this.msgCash.msg_cash.size, "this.msgCash.msg_cash.size before adding: ");
 
-      Object.assign(this.msgCash.kb_msg, {
-        chat_id,
-        message_id
-      });
-    } else {
-      this.msgCash.kb_msg = {};
+        this.msgCash.msg_cash.add({
+          chat_id,
+          message_id
+        });
+
+        log(this.msgCash.msg_cash.size, "this.msgCash.msg_cash.size after adding: ");
+      }
+    }
+    else {
+     console.error(`no valid message data found at UserCash.cashOrCleanMsg`, msgData);
     }
   }
 
-  getKBMsgCash () {
-    return this.msgCash.kb_msg;
-  }
-
-  cashMsg({ chat_id, message_id }) {
-    this.msgCash.msg_cash.add({
-      chat_id,
-      message_id
-    });
-  }
-
-  msgCashClean() {
+  cleanAllMsgCash() {
     if (this.msgCash.msg_cash.size) {
       this.msgCash.msg_cash.clear();
     }
+  }
+
+  getKbMsgCash () {
+    return this.msgCash.kb_msg;
+  }
+
+  getInKbMsgCash () {
+    return this.msgCash.inline_kb_msg;
   }
 
   getMsgCash(params = {}) {
@@ -73,7 +101,7 @@ module.exports = class UserCash {
     return msgCashArr;
   }
 
-  getInlineKBMap(articleId) {
+  getInlineKbMap(articleId) {
     return this.articlesInlineKBParams.get(articleId);
   }
 

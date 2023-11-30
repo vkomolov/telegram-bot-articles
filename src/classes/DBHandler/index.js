@@ -35,36 +35,40 @@ module.exports = class DBHandler {
    * @returns {Promise<*>}
    */
   async getCollectionByModel (modelName, targetProp = {}, option = {}) {
-    /** option
-     * showBy: {
-     *   name: 1,
-     *   description: 1
-     * }
-     * @type {*|{}}
-     */
-    const showBy = option?.showBy || {};
+    try {
+      /** option
+       * showBy: {
+       *   name: 1,
+       *   description: 1
+       * }
+       * @type {*|{}}
+       */
+      const showBy = option?.showBy || {};
 
-    /**
-     * how to sort
-     * @example params.sortBy = {
-     *   name: 1,
-     *   title: 1
-     * }
-     */
-    const sortBy = option?.sortBy || {};
+      /**
+       * how to sort
+       * @example params.sortBy = {
+       *   name: 1,
+       *   title: 1
+       * }
+       */
+      const sortBy = option?.sortBy || {};
 
-    const mName = modelName[0].toUpperCase() + modelName.toLowerCase().slice(1);
-    const ModelName = this[mName] || null;
+      const mName = modelName[0].toUpperCase() + modelName.toLowerCase().slice(1);
+      const ModelName = this[mName] || null;
 
-    if (ModelName) {
-
-      //any Model of this
-      return await ModelName.find({...targetProp}, showBy)
-          .sort(sortBy).exec();
+      if (ModelName) {
+        //any Model of this
+        return await ModelName.find({...targetProp}, showBy)
+            .sort(sortBy).exec();
+      }
+      else {
+        console.error(`could not find ${ mName } in models at getCollectionByProp...`);
+        return null;
+      }
     }
-    else {
-      console.error(`could not find ${ mName } in models at getCollectionByProp...`);
-      return null;
+    catch (e) {
+      console.error('error at getCollectionByModel: ', e);
     }
   }
 
@@ -113,35 +117,45 @@ module.exports = class DBHandler {
    * @returns {Promise<{userData: *, userLastVisit: null}|{userLastVisit: *, user: *}>}
    */
   async checkUserAndSave (incomingUser, params={}) {
-    const {
-      userId, first_name, last_name, language_code,
-      last_visit, favorites
-    } = incomingUser;
+    try {
+      const {
+        userId, first_name, last_name, language_code,
+        last_visit, favorites
+      } = incomingUser;
 
-    const user = await this.User.findOne({ userId }); //'5764807790' string
+      const user = await this.User.findOne({ userId }); //'5764807790' string
 
-    if (user) {
-      let userLastVisit = user.last_visit;
-      //refreshing last_visit
-      user.last_visit = Date.now();
-      await user.save();
+      if (user) {
+        let userLastVisit = user.last_visit;
+        //refreshing last_visit
+        user.last_visit = Date.now();
+        await user.save();
 
-      return {
-        user,
-        userLastVisit
+        return {
+          user,
+          userLastVisit
+        }
       }
-    } else {
-      const newUser = await new this.User(incomingUser).save();
-      //TODO: to make validation of the new user properties
+      else {
+        const newUser = await new this.User(incomingUser).save();
+        //TODO: to make validation of the new user properties
 
-      console.log(`new user ${ userId } is saved...`);
+        console.log(`new user ${ userId } is saved...`);
 
-      //for the new user the userLastVisit must be null
-      return {
-        user: newUser,
-        userLastVisit: null
+        //for the new user the userLastVisit must be null
+        return {
+          user: newUser,
+          userLastVisit: null
+        }
       }
     }
+    catch(e) {
+      console.error('error at checkUserAndSave: ', e)
+    }
+
+
+
+
   }
 
   async saveNewArticle (articleData) {

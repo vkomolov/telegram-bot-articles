@@ -17,7 +17,8 @@ module.exports = class BotHandler {
   }
 
   async deleteMessage (chat_id, message_id) {
-    await this.bot.deleteMessage(chat_id, message_id)
+
+    await this.bot.deleteMessage(chat_id, message_id);
   }
 
   async editMessageText (newText, { chat_id, message_id, reply_markup = {} }) {

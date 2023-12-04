@@ -198,6 +198,8 @@ module.exports.get_inline_keyboard_topics = function (topicsDataArr, splitBy = 2
       }
   );
 
+  const topicsSplitted = splitArrBy(topicsInlineDataArr, splitBy);
+  log(topicsSplitted, "keyboard map from splitArrBy: ");
 
   return splitArrBy(topicsInlineDataArr, splitBy);
 };

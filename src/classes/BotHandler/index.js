@@ -16,7 +16,7 @@ module.exports = class BotHandler {
     this.parse_mode = "Markdown"
   }
 
-  async deleteMessage (chat_id, message_id) {
+  async _deleteMessage (chat_id, message_id) {
 
     await this.bot.deleteMessage(chat_id, message_id);
   }
@@ -78,6 +78,7 @@ module.exports = class BotHandler {
   }
 
   async confirmAddArticleAction (chatId, msgId, userId, { activeProp, activePropValue }) {
+
     const { ADD_ARTICLE } = _.getActionTypes();
     const { addArticleMenu } = _.getMenuKeys();
 
@@ -87,11 +88,9 @@ module.exports = class BotHandler {
 
     const cbDataTrue = {
       tp: ADD_ARTICLE.ADD_ARTICLE_PROP_SET,
-      val: activePropValue
     };
     const cbDataFalse = {
       tp: ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL,
-      uId: userId,
     };
 
     const params = {
@@ -102,7 +101,7 @@ module.exports = class BotHandler {
       }
     };
 
-    const confirmMessage = `Подтвердите название новой статьи: *"${ activePropValue }"*`;
+    const confirmMessage = `Подтвердите запись значения: *"${ activePropValue }"*`;
 
     return await this._sendMessage(chatId, confirmMessage, params);
   }

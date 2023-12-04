@@ -164,7 +164,6 @@ module.exports = class DBHandler {
 
   async deleteArticleById (articleId) {
     await this.Article.deleteOne({ _id: articleId });
-    log(`Article by id: ${ articleId } is deleted...`);
   }
 };
 

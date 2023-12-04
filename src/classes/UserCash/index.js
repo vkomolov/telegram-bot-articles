@@ -59,18 +59,10 @@ module.exports = class UserCash {
         }
       }
       else {
-        log(this.msgCash.msg_cash.has({
-          chat_id,
-          message_id
-        }), `is message data exists with chat_id: ${ chat_id }, message_id: ${ message_id }`);
-        log(this.msgCash.msg_cash.size, "this.msgCash.msg_cash.size before adding: ");
-
         this.msgCash.msg_cash.add({
           chat_id,
           message_id
         });
-
-        log(this.msgCash.msg_cash.size, "this.msgCash.msg_cash.size after adding: ");
       }
     }
     else {
@@ -92,13 +84,14 @@ module.exports = class UserCash {
     return this.msgCash.inline_kb_msg;
   }
 
-  getMsgCash(params = {}) {
-    const msgCashArr = Array.from(this.msgCash.msg_cash);
+  getMsgCash() {
+    return Array.from(this.msgCash.msg_cash);
+  }
 
-    if (Object.keys(params).length) {
-      return findObjFromArrByProp(msgCashArr, params);
+  hasMsgInCash(msgData) {
+    if (msgData?.chat_id && msgData?.message_id) {
+      return this.msgCash.msg_cash.has(msgData);
     }
-    return msgCashArr;
   }
 
   getInlineKbMap(articleId) {

@@ -12,6 +12,7 @@ module.exports = class ArticleDraft {
     };
 
     this._activeProp = null;
+    this._activePropDraftValue = null;
   }
 
   getMenuKey (propName) {
@@ -41,19 +42,25 @@ module.exports = class ArticleDraft {
     }
   }
 
+  get activePropDraftValue () {
+    return this._activePropDraftValue;
+  }
+
+  set activePropDraftValue (draftValue) {
+    //TODO: possible validation
+    this._activePropDraftValue = draftValue;
+  }
+
   get activeProp () {
     return this._activeProp;
   }
 
   set activeProp (propName) {
 
-    //log(propName, "propName at activeProp: ");
-    //log(this.projectArticleData, "this.projectArticleData");
-
     if (propName in this.projectArticleData || propName === null) {
       this._activeProp = propName;
-
-      log(this._activeProp, "this._activeProp: ");
+      //resetting the draft value for the active prop...
+      this.activePropDraftValue = null;
     }
   }
 

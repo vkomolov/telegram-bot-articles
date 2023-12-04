@@ -3,7 +3,7 @@ const DBHandler = require("../DBHandler");
 const UserCash = require("../UserCash");
 const _ = require("../../config");
 
-const { splitArrBy, flattenObject, findObjFromArrByProp } = require("../../_utils");
+const { splitArrBy, getBytesLength, findObjFromArrByProp } = require("../../_utils");
 
 const { specId } = process.env;
 const { ARTICLES, ADD_ARTICLE } = _.getActionTypes();
@@ -86,20 +86,8 @@ module.exports = class BotArticles {
     }
   }
 
-  _cashOrCleanMsg (userId, msgData, toClean =  false) {
-    const userIdCash = this._getUserIdCash(userId);
-
-    if (userIdCash) {
-      userIdCash.cashOrCleanMsg(msgData, toClean);
-    }
-    else {
-      console.error(`no cash found for user id: ${ userId } with message data: ${ msgData }...`);
-    }
-  }
-
   _cashOrCleanKbMsg (userId, msgData = null) {
     const userIdCash = this._getUserIdCash(userId);
-
     if (userIdCash) {
       const prevKbMsgCash = {
         ...userIdCash.getKbMsgCash()
@@ -118,6 +106,7 @@ module.exports = class BotArticles {
         userIdCash.cashOrCleanKbMsg({ ...msgData });
       }
       else {
+        //cleaning kbMsgCash
         userIdCash.cashOrCleanKbMsg();
       }
     }
@@ -147,6 +136,7 @@ module.exports = class BotArticles {
         userIdCash.cashOrCleanInKbMsg({ ...msgData });
       }
       else {
+        //cleaning inKbMsgCash when no arguments...
         userIdCash.cashOrCleanInKbMsg();
       }
     }
@@ -177,6 +167,7 @@ module.exports = class BotArticles {
       const aDraft = userIdCash.getArticleDraft();
       if (aDraft && aDraft.activeProp) {
         aDraft.activeProp = null;
+        aDraft.activePropDraftValue = null;
       }
     }
     else {
@@ -184,25 +175,50 @@ module.exports = class BotArticles {
     }
   }
 
-  async _cleanAllMsgCash (userId, isCleanAll=false) {
-    const userIdCash = this.usersCash.get(userId);
-    if (userIdCash) {
-      const msgCashArr = userIdCash.getMsgCash();
+  async _cashOrCleanMsg (userId, msgData, toClean =  false) {
+    const userIdCash = this._getUserIdCash(userId);
 
-      if (isCleanAll) {
+    if (userIdCash) {
+      if (toClean) {
+        const { chat_id, message_id } = msgData;
+        if (chat_id && message_id && userIdCash.hasMsgInCash(msgData)) {
+          try {
+            await this.botHandler._deleteMessage(chat_id, message_id);
+          }
+          catch (e) {
+            console.error(`error at _cashOrCleanMsg with chat_id: ${ chat_id }, message_id: ${ message_id }`);
+            console.error("error message:", e.message);
+          }
+        }
+      }
+
+      userIdCash.cashOrCleanMsg(msgData, toClean);
+    }
+    else {
+      console.error(`no cash found for user id: ${ userId } with message data: ${ msgData }...`);
+    }
+  }
+
+  //TODO: error happens deleting msg with chat_id, message_id = undefined "not found to delete"
+  async _cleanAllMsgCash (userId, isAllKeyboardsIncluded=false) {
+    const userIdCash = this._getUserIdCash(userId);
+
+    if (userIdCash) {
+      if (isAllKeyboardsIncluded) {
         //cleaning msg data of keyboard and inline_keyboard
         this._cashOrCleanKbMsg(userId);
         this._cashOrCleanInKbMsg(userId);
       }
 
-      if (msgCashArr.length) {
-        log(msgCashArr, "msgCashArr before delete: ");
+      const msgCashArr = userIdCash.getMsgCash();
 
+      if (msgCashArr.length) {
         for (const { chat_id, message_id } of msgCashArr) {
           if (chat_id && message_id) {
             try {
-              await this.botHandler.deleteMessage(chat_id, message_id);
-            } catch(e) {
+              await this.botHandler._deleteMessage(chat_id, message_id);
+            }
+            catch(e) {
               console.error(`error at _cleanAllMsgCash with chat_id: ${ chat_id }, message_id: ${ message_id }`);
               console.error("error message:", e.message);
             }
@@ -212,10 +228,8 @@ module.exports = class BotArticles {
           }
         }
         //after await fulfilled and messages deleted, to clear userId message cash
+        userIdCash.cleanAllMsgCash();
       }
-
-
-      userIdCash.cleanAllMsgCash();
     }
     else {
       console.error(`no cash found for user id: ${ userId } at _cleanAllMsgCash...`);
@@ -238,7 +252,7 @@ module.exports = class BotArticles {
 
             setTimeout(() => {
               this._cleanAllMsgCash(userId);
-            }, 500);
+            }, 300);
           }
           else {
             console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -247,7 +261,7 @@ module.exports = class BotArticles {
   }
 
   async _useCashedInlineKb (articleId, chat_id, message_id, userId, params={}) {
-    //getting the cashed data for creating the inline_keyboard of a particular message with the Article
+    //getting cashed data for creating the inline_keyboard of a particular message with the Article
     const auxData = this._getInlineKeyboardData(userId, articleId);
 
     if (auxData) {
@@ -287,7 +301,7 @@ module.exports = class BotArticles {
                   this._cashOrCleanKbMsg(userId, sentMsgRes);
                   setTimeout(() => {
                     this._cleanAllMsgCash(userId);
-                  }, 500);
+                  }, 300);
                 }
                 else {
                   console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -322,7 +336,7 @@ module.exports = class BotArticles {
 
                     setTimeout(() => {
                       this._cleanAllMsgCash(userId);
-                    }, 500);
+                    }, 300);
                   }
                   else {
                     console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -390,7 +404,7 @@ module.exports = class BotArticles {
 
                     setTimeout(() => {
                       this._cleanAllMsgCash(userId);
-                    }, 500);
+                    }, 300);
                   }
                   else {
                     console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -447,28 +461,20 @@ module.exports = class BotArticles {
           }
           else {
             console.log(`the user ${ user.userId } is updated with the last visit date...`);
-            //log(user, "user updated: ");
           }
 
           const userIdCashPrev = this.usersCash.get(userId);
 
           if (userIdCashPrev) {
-            log(userIdCashPrev, "userIdCashPrev");
-
-            //cleaning the messages of the previous session
-            this._cashOrCleanKbMsg(userId);
-            this._cashOrCleanInKbMsg(userId);
-
             await this._cleanAllMsgCash(userId, true);
           }
-
-          const userIdCash = new UserCash(userId);
           //creating new cash fot userId
+          const userIdCash = new UserCash(userId);
 
           //cashing data for userId
           this.usersCash.set(userId, userIdCash);
 
-          //cashing message
+          //cashing message 'start'
           this._cashOrCleanMsg(userId, { chat_id, message_id });
 
           await this.botHandler.welcomeUser({ chat_id, user, userLastVisit }, {
@@ -485,7 +491,7 @@ module.exports = class BotArticles {
 
                   setTimeout(() => {
                     this._cleanAllMsgCash(userId);
-                  }, 500);
+                  }, 300);
                 }
                 else {
                   console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -502,7 +508,9 @@ module.exports = class BotArticles {
 
         //resetting previous messages with inline keyboards
         this._cashOrCleanInKbMsg(userId);
+
         //cashing incoming message for the future cleaning
+        //TODO:revise cash cleaning
         this._cashOrCleanMsg(userId, { chat_id, message_id });
         await this._handleRegularKey(chat_id, message_id, userId, msg.text);
       }
@@ -513,6 +521,8 @@ module.exports = class BotArticles {
         if (foundIndex !== -1) {
           //if activeProp then to clean adding value to active prop from article draft menu
           this._activePropReset(userId);
+
+          //TODO:revise cash cleaning
           this._cashOrCleanMsg(userId, { chat_id, message_id });
 
           const { typeId } = this.topicsCollection[foundIndex];
@@ -533,6 +543,8 @@ module.exports = class BotArticles {
               .then(doc => doc.favorites);
 
           if (collectionArticles.length) {
+
+            //TODO:revise cash cleaning
             await this._cleanAllMsgCash(userId);
 
             for (const article of collectionArticles) {
@@ -550,6 +562,7 @@ module.exports = class BotArticles {
                     const sentMsgRes = this._getMsgResultData(msgRes);
 
                     if (sentMsgRes) {
+
                       this._cashOrCleanMsg(userId, sentMsgRes);
                     }
                     else {
@@ -586,52 +599,24 @@ module.exports = class BotArticles {
             if (aDraft && aDraft.activeProp) {
               const { activeProp } = aDraft;
 
-              if (activeProp === "link") {
-                //resetting inKBMsgCash
-                const inKBMsgCash = userIdCash.getInKbMsgCash();
+              //restrictions in length: 64 Bytes TODO: to solve restrictions...
 
-                log("in link loop");
-                //TODO: to validate link
-                aDraft.setActivePropValue(msg.text);
+              aDraft.activePropDraftValue = msg.text;
 
-                await this.botHandler.checkAndSendMessageWithEmptyADraftProps(
-                    inKBMsgCash.chat_id,
-                    inKBMsgCash.message_id,
-                    aDraft
-                );
+              await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
+                activeProp,
+                activePropValue: msg.text,
+              })
+                  .then(msgRes => {
+                    const sentMsgRes = this._getMsgResultData(msgRes);
 
-                await this.botHandler._sendMessage(chat_id, `*Ccылка сохранена...*`)
-                    .then(msgRes => {
-                      const sentMsgRes = this._getMsgResultData(msgRes);
-
-                      if (sentMsgRes) {
-                        this._cashOrCleanMsg(userId, sentMsgRes);
-                      }
-                      else {
-                        console.error(`received null from the sent message at _returnToMainKeyboard... `);
-                      }
-                    });
-
-                setTimeout(() => {
-                  this._cleanAllMsgCash(userId);
-                }, 500);
-              }
-              else {
-                await this.botHandler.confirmAddArticleAction(chat_id, message_id, userId, {
-                  activeProp,
-                  activePropValue: msg.text,
-                })
-                    .then(msgRes => {
-                      const sentMsgRes = this._getMsgResultData(msgRes);
-
-                      if (sentMsgRes) {
-                        this._cashOrCleanMsg(userId, sentMsgRes);
-                      }
-                      else {
-                        console.error(`received null from the sent message at _returnToMainKeyboard... `);
-                      }
-                    });
-              }
+                    if (sentMsgRes) {
+                      this._cashOrCleanMsg(userId, sentMsgRes);
+                    }
+                    else {
+                      console.error(`received null from the sent message at _returnToMainKeyboard... `);
+                    }
+                  });
             }
             else {
               await this._returnToMainKeyboard(chat_id, userId);
@@ -643,16 +628,15 @@ module.exports = class BotArticles {
                   const sentMsgRes = this._getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
-                    this._cashOrCleanMsg(userId, sentMsgRes);
+                    setTimeout(() => {
+                      this.botHandler._deleteMessage(sentMsgRes.chat_id, sentMsgRes.message_id);
+                      this.botHandler._deleteMessage(chat_id, message_id);
+                    }, 1500);
+                    //this._cashOrCleanMsg(userId, sentMsgRes);
                   }
                   else {
                     console.error(`received null from the sent message at _returnToMainKeyboard... `);
                   }
-
-                  this._cashOrCleanMsg(userId, { chat_id, message_id });
-                  setTimeout(() => {
-                    this._cleanAllMsgCash(userId);
-                  }, 500);
                 });
           }
         }
@@ -674,8 +658,6 @@ module.exports = class BotArticles {
       const articleId = data?.aId || null;
       const isConfirmed = data?.ok || null; //true|false is confirmed... null - empty;
       const propVal = data?.val || null;
-
-      log(data, "data : ");
 
       const actionTypesArticlesHandles = {
         [ARTICLES.ARTICLE_FAVORITE_ADD]: async () => {
@@ -744,7 +726,7 @@ module.exports = class BotArticles {
                   .then(() => {
                     setTimeout(async () => {
                       await this.botHandler._answerCallbackQuery(query.id, `Ресурс удален...`);
-                      await this.botHandler.deleteMessage(chat_id, message_id);
+
                       this._cleanAllMsgCash(userId);
                     }, 700);
                   });
@@ -770,6 +752,7 @@ module.exports = class BotArticles {
             if (propVal && aDraft) {
               //using .set activeProp(propName)
               aDraft.activeProp = propVal;
+              aDraft.activePropDraftValue = null;
 
               if (propVal.toString() === "typeId") {
                 const topicsDataArr = this.topicsCollection.map(topic => ({
@@ -817,42 +800,52 @@ module.exports = class BotArticles {
               const aDraft = userIdCash.getArticleDraft();
               const inKBMsgCash = userIdCash.getInKbMsgCash();
 
-              const { activeProp } = aDraft;
-              //saving propVal to the aDraft active property
-              //TODO: to validate propVal for each aDraft property
-              aDraft.setActivePropValue(propVal);
+              const { activeProp, activePropDraftValue } = aDraft;
+              if (activeProp) {
+                //saving propVal to the aDraft active property
+                //TODO: to validate propVal for each aDraft property
+                let pName;
+                let pVal;
 
-              let pName;
-              let pVal;
+                if (activeProp === "typeId") {
+                  const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
+                  pName = targetObj.name;
+                  pVal = propVal;
+                }
+                else {
+                  pName = aDraft.getMenuKey(activeProp);
+                  pVal = activePropDraftValue || null;
+                }
 
-              if (activeProp === "typeId") {
-                const targetObj = findObjFromArrByProp(this.topicsCollection, { typeId: propVal });
+                if (pVal) {
+                  aDraft.setActivePropValue(pVal);
+                  const auxVal = activeProp === "typeId" ? pName : pVal;
 
-                log(targetObj, "targetObj at active 'typeId': ");
+                  await Promise.all([
+                    this.botHandler._answerCallbackQuery(
+                        query.id,
+                        `В поле "${ pName }" сохранено значение: "${ auxVal }"`
+                    ),
+                    this.botHandler.checkAndSendMessageWithEmptyADraftProps(
+                        inKBMsgCash.chat_id,
+                        inKBMsgCash.message_id,
+                        aDraft
+                    ),
+                  ]);
+                }
+                else {
+                  console.error(`setting active property with invalid value: ${ pVal } at ADD_ARTICLE_PROP_SET`)
+                }
 
-                pName = targetObj.name;
-                pVal = pName;
+                this._activePropReset(userId);
+
+                setTimeout(() => {
+                  this._cleanAllMsgCash(userId);
+                }, 300);
               }
               else {
-                pName = aDraft.getMenuKey(activeProp);
-                pVal = propVal;
+                console.error(`activeProp: ${ activeProp } is not valid...`);
               }
-
-              await Promise.all([
-                this.botHandler._answerCallbackQuery(
-                    query.id,
-                    `В поле "${ pName }" сохранено значение: "${ pVal }"`
-                ),
-                this.botHandler.checkAndSendMessageWithEmptyADraftProps(
-                    inKBMsgCash.chat_id,
-                    inKBMsgCash.message_id,
-                    aDraft
-                ),
-              ]);
-
-              await setTimeout(() => {
-                this._cleanAllMsgCash(userId);
-              }, 500);
             }
             else {
               console.error(`no message cash found for the id: ${ userId }...`);
@@ -877,7 +870,7 @@ module.exports = class BotArticles {
 
               setTimeout(() => {
                 this._cleanAllMsgCash(userId);
-              }, 500);
+              }, 300);
             }
             else {
               console.error(`no message cash found for the id: ${ userId }...`);
@@ -933,7 +926,6 @@ module.exports = class BotArticles {
             if (userIdCash) {
               userIdCash.clearArticleDraft();
 
-              //await this.botHandler.deleteMessage(chat_id, message_id);
               await this._cashOrCleanMsg(userId, { chat_id, message_id });
               await this.botHandler._answerCallbackQuery(
                   query.id,

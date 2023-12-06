@@ -145,22 +145,6 @@ module.exports = class BotArticles {
     }
   }
 
-  _getMsgResultData (sentMsgResult) {
-    if (sentMsgResult?.chat?.id && sentMsgResult?.message_id) {
-      return {
-        chat_id: sentMsgResult.chat.id,
-        message_id: sentMsgResult.message_id,
-      };
-    }
-    else {
-      console.error(`no necessary properties found at _getMsgResultData: 
-      chat.id: ${ sentMsgResult?.chat?.id }, message_id.: ${ sentMsgResult?.message_id }..`);
-      console.error("returned result from Telegram: ", sentMsgResult);
-
-      return null;
-    }
-  }
-
   _activePropReset (userId) {
     const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
@@ -246,7 +230,7 @@ module.exports = class BotArticles {
       }
     })
         .then(msgRes => {
-          const sentMsgRes = this._getMsgResultData(msgRes);
+          const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
           if (sentMsgRes) {
             this._cashOrCleanKbMsg(userId, sentMsgRes);
 
@@ -295,7 +279,7 @@ module.exports = class BotArticles {
             }
           })
               .then(msgRes => {
-                const sentMsgRes = this._getMsgResultData(msgRes);
+                const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                 if (sentMsgRes) {
                   this._cashOrCleanKbMsg(userId, sentMsgRes);
@@ -329,7 +313,7 @@ module.exports = class BotArticles {
               }
             })
                 .then(msgRes => {
-                  const sentMsgRes = this._getMsgResultData(msgRes);
+                  const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
                     this._cashOrCleanInKbMsg(userId, sentMsgRes);
@@ -375,7 +359,7 @@ module.exports = class BotArticles {
               //isFav is true
               const params = this._getAndCashArticleInlineKbParams(article, userId, true, isSpec);
 
-              await this.botHandler.sendArticle(chat_id, article,{
+              this.botHandler.sendArticle(chat_id, article,{
                 reply_markup: {
                   inline_keyboard: _.get_inline_keyboard_articles({
                     ...params,
@@ -383,10 +367,8 @@ module.exports = class BotArticles {
                 }
               })
                   .then(msgRes => {
-                    const sentMsgRes = this._getMsgResultData(msgRes);
-
-                    if (sentMsgRes) {
-                      this._cashOrCleanMsg(userId, sentMsgRes);
+                    if (msgRes && msgRes.chat_id && msgRes.message_id) {
+                      this._cashOrCleanMsg(userId, msgRes);
                     }
                     else {
                       console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -397,7 +379,7 @@ module.exports = class BotArticles {
           else {
             await this.botHandler._sendMessage(chat_id, `Список *Избранного* пуст...`)
                 .then(msgRes => {
-                  const sentMsgRes = this._getMsgResultData(msgRes);
+                  const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
                     this._cashOrCleanInKbMsg(userId, sentMsgRes);
@@ -484,7 +466,7 @@ module.exports = class BotArticles {
             }
           })
               .then(msgRes => {
-                const sentMsgRes = this._getMsgResultData(msgRes);
+                const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                 if (sentMsgRes) {
                   this._cashOrCleanKbMsg(userId, sentMsgRes);
@@ -551,7 +533,7 @@ module.exports = class BotArticles {
               const isFav = userFavorites.includes(article._id);
               const params = this._getAndCashArticleInlineKbParams(article, userId, isFav, isSpec);
 
-              await this.botHandler.sendArticle(chat_id, article, {
+              this.botHandler.sendArticle(chat_id, article, {
                 reply_markup: {
                   inline_keyboard: _.get_inline_keyboard_articles({
                     ...params,
@@ -559,11 +541,8 @@ module.exports = class BotArticles {
                 }
               })
                   .then(msgRes => {
-                    const sentMsgRes = this._getMsgResultData(msgRes);
-
-                    if (sentMsgRes) {
-
-                      this._cashOrCleanMsg(userId, sentMsgRes);
+                    if (msgRes && msgRes.chat_id && msgRes.message_id) {
+                      this._cashOrCleanMsg(userId, msgRes);
                     }
                     else {
                       console.error(`received null from the sent message at _returnToMainKeyboard... `);
@@ -574,7 +553,7 @@ module.exports = class BotArticles {
           else {
             await this.botHandler._sendMessage(chat_id, "В коллекции пусто...")
                 .then(msgRes => {
-                  const sentMsgRes = this._getMsgResultData(msgRes);
+                  const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
                     this._cashOrCleanMsg(userId, sentMsgRes);
@@ -608,7 +587,7 @@ module.exports = class BotArticles {
                 activePropValue: msg.text,
               })
                   .then(msgRes => {
-                    const sentMsgRes = this._getMsgResultData(msgRes);
+                    const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                     if (sentMsgRes) {
                       this._cashOrCleanMsg(userId, sentMsgRes);
@@ -625,7 +604,7 @@ module.exports = class BotArticles {
           else {
             await this.botHandler._sendMessage(chat_id, "Нажмите на кнопку *Меню* и выберите *Cтарт*...")
                 .then(msgRes => {
-                  const sentMsgRes = this._getMsgResultData(msgRes);
+                  const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
                     setTimeout(() => {
@@ -771,7 +750,7 @@ module.exports = class BotArticles {
               else {
                 await this.botHandler._sendMessage(chat_id, `Введите ${ addArticleMenu[propVal] }`)
                     .then(msgRes => {
-                      const sentMsgRes = this._getMsgResultData(msgRes);
+                      const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                       if (sentMsgRes) {
                         this._cashOrCleanMsg(userId, sentMsgRes);

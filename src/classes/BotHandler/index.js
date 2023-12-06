@@ -2,6 +2,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const _ = require("../../config");
 
 const { token, specId } = process.env;
+const { parser } = require('html-metadata-parser');
 
 const dictBotHandler = {
   "ru": "русский",
@@ -13,7 +14,8 @@ const dictBotHandler = {
 module.exports = class BotHandler {
   constructor() {
     this.bot = null;
-    this.parse_mode = "Markdown"
+    this.parse_mode = "Markdown";
+
   }
 
   async _deleteMessage (chat_id, message_id) {
@@ -106,7 +108,7 @@ module.exports = class BotHandler {
     return await this._sendMessage(chatId, confirmMessage, params);
   }
 
-  async _sendMessage (chatId, textMessage, params={}) {
+  _sendMessage (chatId, textMessage, params={}) {
     try {
       const auxParams = {
         parse_mode: this.parse_mode,
@@ -114,10 +116,10 @@ module.exports = class BotHandler {
       };
 
       if (this.bot) {
-        return await this.bot.sendMessage(chatId, textMessage, auxParams);
+        return this.bot.sendMessage(chatId, textMessage, auxParams);
       }
       else {
-        console.error("this bot is not initiated...");
+        console.error("this bot is not initiated... ");
       }
     }
     catch(e) {
@@ -125,25 +127,72 @@ module.exports = class BotHandler {
     }
   }
 
-  async sendArticle(chatId, article, params={}) {
+  sendArticle(chatId, article, params={}) {
     try {
       const reply_markup = params?.reply_markup || {};
 
-      const articleHeading = `*Название статьи*: ${ article?.name || "Неизвестно..." } `;
-      const articleDescription = `*Описание статьи*: ${ article?.description || "Отсутствует..." }`;
-      const articleLink = `[${ article.name }](${ article.link })`;
+      const articleHeading = `Название статьи: ${ article?.name || "Неизвестно..." }`;
+      const articleDescription = `Описание статьи: ${ article?.description || "Отсутствует..." }`;
 
-      const resMessage = `${ articleHeading } \n\n${ articleDescription } \n\n`;
-      const picUrl = "https://devby.io/storage/images/50/85/44/91/derived/d43d698b57d948929798843e9095d6cd.jpg";
+      const totalMessage = `${ articleHeading } \n${ articleDescription }`;
+      const picDefault = "https://devby.io/storage/images/50/85/44/91/derived/d43d698b57d948929798843e9095d6cd.jpg";
 
-      return await this.bot.sendPhoto(chatId, picUrl, {
-        caption: resMessage,
+      return this.bot.sendPhoto(chatId, picDefault, {
+        caption: totalMessage,
         parse_mode: this.parse_mode,
         reply_markup
       })
+          .then(async sentMsgResult => {
+            try {
+              //object with chat_id and message_id of the message sent...
+              const msgRes = this.getMsgResultData(sentMsgResult);
+              const metadata = await parser(article.link);
+
+              if (metadata && metadata.og) {
+                const metaTitle = metadata.og?.title || "";
+                const metaDescription = metadata.og?.description || "";
+                const metaImage = metadata.og?.image || null;
+                let resCaption = totalMessage
+                    + (metaTitle.length ? `\n\n${ metaTitle }` : ``)
+                    + (metaDescription.length ? `\n${ metaDescription }` : ``);
+
+                await this.bot.editMessageMedia({
+                  type: "photo",
+                  media: metaImage || picDefault,
+                  caption: resCaption
+                }, {
+                  chat_id: msgRes.chat_id,
+                  message_id: msgRes.message_id,
+                  parse_mode: this.parse_mode,
+                  reply_markup
+                });
+
+                return msgRes;
+              }
+            }
+            catch (e) {
+              console.error(`error at sentMsgResult from bot.sendPhoto`, e);
+            }
+          });
     }
     catch (e) {
       console.error(e);
+    }
+  }
+
+  getMsgResultData (sentMsgResult) {
+    if (sentMsgResult?.chat?.id && sentMsgResult?.message_id) {
+      return {
+        chat_id: sentMsgResult.chat.id,
+        message_id: sentMsgResult.message_id,
+      };
+    }
+    else {
+      console.error(`no necessary properties found at _getMsgResultData: 
+      chat.id: ${ sentMsgResult?.chat?.id }, message_id.: ${ sentMsgResult?.message_id }..`);
+      console.error("returned result from Telegram: ", sentMsgResult);
+
+      return null;
     }
   }
 

@@ -3,7 +3,7 @@ const DBHandler = require("../DBHandler");
 const UserCash = require("../UserCash");
 const _ = require("../../config");
 
-const { splitArrBy, getBytesLength, findObjFromArrByProp } = require("../../_utils");
+const { splitArrBy, isEqualObject, findObjFromArrByProp } = require("../../_utils");
 
 const { specId } = process.env;
 const { ARTICLES, ADD_ARTICLE } = _.getActionTypes();
@@ -29,21 +29,10 @@ module.exports = class BotArticles {
   }
 ///END OF CONSTRUCTOR
 
-  _getUserIdCash (userId) {
-    const userIdCash = this.usersCash.get(userId);
-    if (!userIdCash) {
-      console.error(`no user cash with user id: ${ userId } found...`);
-      return null;
-      //throw new Error(`no user cash with user id: ${ userId } found...`);
-    }
-
-    return userIdCash;
-  }
-
   _getAndCashArticleInlineKbParams (article, userId, isFav, isSpec) {
     const articleId = article._id.toString();  //converting from ObjectId()
     //it returns UserCash instance
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
     const params = {
       link: article.link,
       articleId,
@@ -61,7 +50,7 @@ module.exports = class BotArticles {
   }
 
   _getInlineKeyboardData (userId, articleId) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
       const inlineKb = userIdCash.getInlineKbMap(articleId) || null;
       if (!inlineKb) {
@@ -75,7 +64,7 @@ module.exports = class BotArticles {
   }
 
   _getUserADraft (userId) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
 
     if (userIdCash) {
       return userIdCash.getArticleDraft();
@@ -87,7 +76,7 @@ module.exports = class BotArticles {
   }
 
   _cashOrCleanKbMsg (userId, msgData = null) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
       const prevKbMsgCash = {
         ...userIdCash.getKbMsgCash()
@@ -116,7 +105,7 @@ module.exports = class BotArticles {
   }
 
   _cashOrCleanInKbMsg (userId, msgData = null) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
 
     if (userIdCash) {
       const prevInKbMsgCash = {
@@ -160,23 +149,28 @@ module.exports = class BotArticles {
   }
 
   async _cashOrCleanMsg (userId, msgData, toClean =  false) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
 
     if (userIdCash) {
       if (toClean) {
         const { chat_id, message_id } = msgData;
-        if (chat_id && message_id && userIdCash.hasMsgInCash(msgData)) {
+        if (chat_id && message_id) {
           try {
             await this.botHandler._deleteMessage(chat_id, message_id);
+            userIdCash.cashOrCleanMsg(msgData, toClean);
           }
           catch (e) {
             console.error(`error at _cashOrCleanMsg with chat_id: ${ chat_id }, message_id: ${ message_id }`);
             console.error("error message:", e.message);
           }
         }
+        else {
+          console.error("at BotArticles._cashOrCleanMsg no chat_id, message_id found in the given msgData...");
+        }
       }
-
-      userIdCash.cashOrCleanMsg(msgData, toClean);
+      else {
+        userIdCash.cashOrCleanMsg(msgData, toClean);
+      }
     }
     else {
       console.error(`no cash found for user id: ${ userId } with message data: ${ msgData }...`);
@@ -185,7 +179,7 @@ module.exports = class BotArticles {
 
   //TODO: error happens deleting msg with chat_id, message_id = undefined "not found to delete"
   async _cleanAllMsgCash (userId, isAllKeyboardsIncluded=false) {
-    const userIdCash = this._getUserIdCash(userId);
+    const userIdCash = this.usersCash.get(userId);
 
     if (userIdCash) {
       if (isAllKeyboardsIncluded) {
@@ -201,6 +195,10 @@ module.exports = class BotArticles {
           if (chat_id && message_id) {
             try {
               await this.botHandler._deleteMessage(chat_id, message_id);
+              userIdCash.cashOrCleanMsg({
+                chat_id,
+                message_id
+              }, true);
             }
             catch(e) {
               console.error(`error at _cleanAllMsgCash with chat_id: ${ chat_id }, message_id: ${ message_id }`);
@@ -211,8 +209,6 @@ module.exports = class BotArticles {
             console.error(`received invalid chat_id: ${ chat_id } or message_id: ${ message_id }`);
           }
         }
-        //after await fulfilled and messages deleted, to clear userId message cash
-        userIdCash.cleanAllMsgCash();
       }
     }
     else {
@@ -298,7 +294,7 @@ module.exports = class BotArticles {
       },
       [mainMenu.articleAdd]: async () => {
         try {
-          const userIdCash = this._getUserIdCash(userId);
+          const userIdCash = this.usersCash.get(userId);
 
           if (userIdCash) {
             /**
@@ -377,7 +373,7 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler._sendMessage(chat_id, `Список *Избранного* пуст...`)
+            await this.botHandler._sendMessage(chat_id, `Список Избранного пуст...`)
                 .then(msgRes => {
                   const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
@@ -419,8 +415,9 @@ module.exports = class BotArticles {
       const chat_id = msg.chat.id;
       const userId = msg.from.id.toString(); //converting from number
       const isSpec = userId === specId.toString();
+      const userIdCash = this.usersCash.get(userId);
 
-      const { first_name, last_name, is_bot, language_code } = msg.from;
+      const { first_name, last_name, language_code } = msg.from;
 
       ////CONDITIONS
       if (msg.text.startsWith("/start")) {
@@ -445,19 +442,18 @@ module.exports = class BotArticles {
             console.log(`the user ${ user.userId } is updated with the last visit date...`);
           }
 
-          const userIdCashPrev = this.usersCash.get(userId);
-
-          if (userIdCashPrev) {
+          if (userIdCash) {
             await this._cleanAllMsgCash(userId, true);
           }
           //creating new cash fot userId
-          const userIdCash = new UserCash(userId);
+
+          const userIdCashNew = new UserCash(userId);
 
           //cashing data for userId
-          this.usersCash.set(userId, userIdCash);
+          this.usersCash.set(userId, userIdCashNew);
 
           //cashing message 'start'
-          this._cashOrCleanMsg(userId, { chat_id, message_id });
+          await this._cashOrCleanMsg(userId, { chat_id, message_id });
 
           await this.botHandler.welcomeUser({ chat_id, user, userLastVisit }, {
             reply_markup: {
@@ -487,13 +483,11 @@ module.exports = class BotArticles {
       else if (this.regularKeys.includes(msg.text)) {
         //resetting activeProp if entering the value to the property of aDraft is canceled
         this._activePropReset(userId);
-
         //resetting previous messages with inline keyboards
         this._cashOrCleanInKbMsg(userId);
-
         //cashing incoming message for the future cleaning
-        //TODO:revise cash cleaning
         this._cashOrCleanMsg(userId, { chat_id, message_id });
+
         await this._handleRegularKey(chat_id, message_id, userId, msg.text);
       }
       else {
@@ -503,6 +497,9 @@ module.exports = class BotArticles {
         if (foundIndex !== -1) {
           //if activeProp then to clean adding value to active prop from article draft menu
           this._activePropReset(userId);
+
+          //cleaning previous messages
+          await this._cleanAllMsgCash(userId);
 
           //TODO:revise cash cleaning
           this._cashOrCleanMsg(userId, { chat_id, message_id });
@@ -525,10 +522,6 @@ module.exports = class BotArticles {
               .then(doc => doc.favorites);
 
           if (collectionArticles.length) {
-
-            //TODO:revise cash cleaning
-            await this._cleanAllMsgCash(userId);
-
             for (const article of collectionArticles) {
               const isFav = userFavorites.includes(article._id);
               const params = this._getAndCashArticleInlineKbParams(article, userId, isFav, isSpec);
@@ -540,13 +533,11 @@ module.exports = class BotArticles {
                   }),
                 }
               })
-                  .then(msgRes => {
-                    if (msgRes && msgRes.chat_id && msgRes.message_id) {
-                      this._cashOrCleanMsg(userId, msgRes);
-                    }
-                    else {
-                      console.error(`received null from the sent message at _returnToMainKeyboard... `);
-                    }
+                  .then((msgRes) => {
+                    this._cashOrCleanMsg(userId, {
+                      chat_id: msgRes.chat_id,
+                      message_id: msgRes.message_id
+                    });
                   });
             }
           }
@@ -565,8 +556,6 @@ module.exports = class BotArticles {
           }
         }
         else {
-          const userIdCash = this.usersCash.get(userId);
-
           if (userIdCash) {
             this._cashOrCleanMsg(userId, { chat_id, message_id });
 
@@ -578,7 +567,7 @@ module.exports = class BotArticles {
             if (aDraft && aDraft.activeProp) {
               const { activeProp } = aDraft;
 
-              //restrictions in length: 64 Bytes TODO: to solve restrictions...
+              //restrictions in length: 64 Bytes
 
               aDraft.activePropDraftValue = msg.text;
 
@@ -602,7 +591,7 @@ module.exports = class BotArticles {
             }
           }
           else {
-            await this.botHandler._sendMessage(chat_id, "Нажмите на кнопку *Меню* и выберите *Cтарт*...")
+            await this.botHandler._sendMessage(chat_id, "Нажмите на кнопку \"Меню\" и выберите \"Cтарт\"...")
                 .then(msgRes => {
                   const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
@@ -631,6 +620,7 @@ module.exports = class BotArticles {
       const userId = query.from.id.toString();
       const chat_id = query.message.chat.id;
       const message_id = query.message.message_id;
+      const userIdCash = this.usersCash.get(userId);
 
       const data = JSON.parse(query.data);
       const actionType = data?.tp || null;
@@ -703,11 +693,19 @@ module.exports = class BotArticles {
             if (isConfirmed) {
               await this.dbHandler.deleteArticleById(articleId)
                   .then(() => {
+                    if (userIdCash) {
+                      this._cashOrCleanMsg(userId, {
+                        chat_id,
+                        message_id
+                      }, true);
+                    }
+                    else {
+                      console.error(`no cash for userId: ${ userId } found...`);
+                    }
+
                     setTimeout(async () => {
                       await this.botHandler._answerCallbackQuery(query.id, `Ресурс удален...`);
-
-                      this._cleanAllMsgCash(userId);
-                    }, 700);
+                    }, 500);
                   });
             }
             else {
@@ -773,8 +771,6 @@ module.exports = class BotArticles {
         },
         [ADD_ARTICLE.ADD_ARTICLE_PROP_SET]: async () => {
           try {
-            const userIdCash = this._getUserIdCash(userId);
-
             if (userIdCash) {
               const aDraft = userIdCash.getArticleDraft();
               const inKBMsgCash = userIdCash.getInKbMsgCash();
@@ -836,8 +832,6 @@ module.exports = class BotArticles {
         },
         [ADD_ARTICLE.ADD_ARTICLE_PROP_CANCEL]: async () => {
           try {
-            const userIdCash = this._getUserIdCash(userId);
-
             if (userIdCash) {
               const aDraft = userIdCash.getArticleDraft();
               const inKBCash = userIdCash.getInKbMsgCash();
@@ -861,8 +855,6 @@ module.exports = class BotArticles {
         },
         [ADD_ARTICLE.ADD_ARTICLE_SUBMIT]: async () => {
           try {
-            const userIdCash = this._getUserIdCash(userId);
-
             if (userIdCash) {
               const aDraft = userIdCash.getArticleDraft();
               const inKBCash = userIdCash.getInKbMsgCash();
@@ -876,16 +868,15 @@ module.exports = class BotArticles {
                 const aDraftData = aDraft.getADraftData();
 
                 await this.dbHandler.saveNewArticle(aDraftData)
-                    .then(async () => {
-                      const userIdCash = this._getUserIdCash(userId);
+                    .then(() => {
                       userIdCash.clearArticleDraft();
-                      //inline add article menu will be cashed then removed on
+                      //inline add article menu will be cashed then cleaned later
                       this._cashOrCleanMsg(userId, { chat_id, message_id });
-
-                      await this._returnToMainKeyboard(chat_id, userId);
-                      await this.botHandler._answerCallbackQuery(
+                      //returning to main keyboard menu
+                      this._returnToMainKeyboard(chat_id, userId);
+                      this.botHandler._answerCallbackQuery(
                           query.id,
-                          `*Новая Статья сохранена...*`
+                          `Новая Статья сохранена...`
                       );
                     });
               }
@@ -900,8 +891,6 @@ module.exports = class BotArticles {
         },
         [ADD_ARTICLE.ADD_ARTICLE_CANCEL]: async () => {
           try {
-            const userIdCash = this._getUserIdCash(userId);
-
             if (userIdCash) {
               userIdCash.clearArticleDraft();
 

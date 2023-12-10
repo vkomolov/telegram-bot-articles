@@ -1,4 +1,5 @@
 const { findObjFromArrByProp } = require("../../_utils");
+const _ = require("../../config");
 const ArticleDraft = require("../ArticleDraft");
 
 module.exports = class UserCash {
@@ -9,7 +10,7 @@ module.exports = class UserCash {
     this.msgCash = {
       inline_kb_msg: {},
       kb_msg: {},
-      msg_cash: new Set(),
+      msg_cash: new Map(),
     }
   }
 
@@ -20,7 +21,6 @@ module.exports = class UserCash {
   cashOrCleanKbMsg (kbMsgData = null) {
     if (kbMsgData && kbMsgData.chat_id && kbMsgData.message_id) {
       const { chat_id, message_id } = kbMsgData;
-
       //re-writing new message with keyboard data
       Object.assign(this.msgCash.kb_msg, {
         chat_id,
@@ -35,7 +35,6 @@ module.exports = class UserCash {
   cashOrCleanInKbMsg (inKBMsgData = null) {
     if (inKBMsgData && inKBMsgData.chat_id && inKBMsgData.message_id) {
       const { chat_id, message_id } = inKBMsgData;
-
       Object.assign(this.msgCash.inline_kb_msg, {
         chat_id,
         message_id
@@ -48,10 +47,12 @@ module.exports = class UserCash {
   cashOrCleanMsg(msgData, toClean = false) {
     if (msgData && msgData.chat_id && msgData.message_id) {
       const { chat_id, message_id } = msgData;
+      //making unique key for the map: `${msgData.chat_id}_${msgData.message_id}`
+      const mapKey = _.getKeyFromMsgData(msgData);
 
       if (toClean) {
-        if (this.msgCash.msg_cash.has(msgData)) {
-          this.msgCash.msg_cash.delete(msgData);
+        if (this.msgCash.msg_cash.has(mapKey)) {
+          this.msgCash.msg_cash.delete(mapKey);
         }
         else {
           console.error(`the message data with chat_id: ${ chat_id }, message_id: ${ message_id } 
@@ -59,10 +60,7 @@ module.exports = class UserCash {
         }
       }
       else {
-        this.msgCash.msg_cash.add({
-          chat_id,
-          message_id
-        });
+        this.msgCash.msg_cash.set(mapKey, msgData);
       }
     }
     else {
@@ -85,11 +83,11 @@ module.exports = class UserCash {
   }
 
   getMsgCash() {
-    return Array.from(this.msgCash.msg_cash);
+    return Array.from(this.msgCash.msg_cash.values());
   }
 
   hasMsgInCash(msgData) {
-    if (msgData?.chat_id && msgData?.message_id) {
+    if (msgData.chat_id && msgData.message_id) {
       return this.msgCash.msg_cash.has(msgData);
     }
   }

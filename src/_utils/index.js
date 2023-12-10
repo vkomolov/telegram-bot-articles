@@ -1,4 +1,4 @@
-
+const axios = require('axios');
 /////////////////
 
 module.exports.objectStringify = function (obj) {
@@ -79,6 +79,31 @@ module.exports.flattenObject = function flattenObject (obj) {
   return result;
 };
 
+/**
+ * It compares two objects with no checking of their references
+ * @param {Object} targetObj
+ * @param {Object}auxObj
+ * @returns {boolean}
+ */
+module.exports.isEqualObject = function (targetObj, auxObj) {
+  const targetKeys = Object.keys(targetObj);
+  const auxKeys = Object.keys(auxObj);
+
+  if (targetKeys.length !== auxKeys.length) {
+    return false;
+  }
+
+  for (let i = 0; i < targetKeys.length; i++) {
+    const key = targetKeys[i];
+
+    if (!auxObj[key] || targetObj[key] !== auxObj[key]) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 function isBase64Encoded (string) {
   try {
     return Buffer.from(string, "base64").toString("base64") === string;
@@ -94,6 +119,20 @@ module.exports.getBytesLength = function (string) {
   } else {
     return Buffer.byteLength(string, "utf8");
   }
+};
+
+module.exports.isValidImageLink = async function (imageLink) {
+  if (imageLink && imageLink.length) {
+    try {
+      const response = await axios.head(imageLink);
+      return response.status === 200 && response.headers?.['content-type']?.includes('image');
+    } catch (error) {
+      console.error(`Error at _utils.isValidImageLink with link: ${ imageLink }: `, error.message);
+      return false;
+    }
+  }
+  console.error(`not valid imageLink: ${ imageLink } at _utils.isValidImageLink...`);
+  return false;
 };
 
 

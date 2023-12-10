@@ -1,5 +1,6 @@
 const TelegramBot = require("node-telegram-bot-api");
 const _ = require("../../config");
+const { isValidImageLink } = require("../../_utils");
 
 const { token, specId } = process.env;
 const { parser } = require('html-metadata-parser');
@@ -143,22 +144,27 @@ module.exports = class BotHandler {
         reply_markup
       })
           .then(async sentMsgResult => {
+            //object with chat_id and message_id of the message sent...
+            const msgRes = this.getMsgResultData(sentMsgResult);
             try {
-              //object with chat_id and message_id of the message sent...
-              const msgRes = this.getMsgResultData(sentMsgResult);
               const metadata = await parser(article.link);
 
               if (metadata && metadata.og) {
                 const metaTitle = metadata.og?.title || "";
                 const metaDescription = metadata.og?.description || "";
                 const metaImage = metadata.og?.image || null;
-                let resCaption = totalMessage
+
+                //checking the link for the response.headers['content-type'].includes('image')
+                const isImageLinkValid = await isValidImageLink(metaImage);
+                const media = isImageLinkValid ? metaImage : picDefault;
+
+                const resCaption = totalMessage
                     + (metaTitle.length ? `\n\n${ metaTitle }` : ``)
                     + (metaDescription.length ? `\n${ metaDescription }` : ``);
 
                 await this.bot.editMessageMedia({
                   type: "photo",
-                  media: metaImage || picDefault,
+                  media,
                   caption: resCaption
                 }, {
                   chat_id: msgRes.chat_id,
@@ -166,12 +172,13 @@ module.exports = class BotHandler {
                   parse_mode: this.parse_mode,
                   reply_markup
                 });
-
-                return msgRes;
               }
+
+              return msgRes;
             }
             catch (e) {
               console.error(`error at sentMsgResult from bot.sendPhoto`, e);
+              return msgRes;
             }
           });
     }

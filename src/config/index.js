@@ -87,6 +87,17 @@ module.exports.getMenuKeys = function () {
   return menuKeys;
 };
 
+module.exports.getKeyFromMsgData = function (msgData) {
+  if (msgData.chat_id && msgData.message_id) {
+    log(`${msgData.chat_id}_${msgData.message_id}`, "outcome key at config.getKeyFromMsgData: ");
+
+    return `${msgData.chat_id}_${msgData.message_id}`;
+  }
+  else {
+    console.error(`error at config.getKeyFromMsgData: no chat_id or message_id found in the given object`, msgData);
+  }
+};
+
 module.exports.getConfirmationMarkup = function (userId, cb_dataTrue, cb_dataFalse) {
   return (
       [

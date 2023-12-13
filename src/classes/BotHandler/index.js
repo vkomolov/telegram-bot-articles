@@ -5,12 +5,13 @@ const { isValidImageLink } = require("../../_utils");
 const { token, specId } = process.env;
 const { parser } = require('html-metadata-parser');
 
+//TODO: dictionary for the UI
 const dictBotHandler = {
   "ru": "русский",
   "ua": "українська",
   "en": "english"
 };
-
+////////////////////////////////
 
 module.exports = class BotHandler {
   constructor() {

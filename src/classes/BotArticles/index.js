@@ -3,7 +3,7 @@ const DBHandler = require("../DBHandler");
 const UserCash = require("../UserCash");
 const _ = require("../../config");
 
-const { splitArrBy, isEqualObject, findObjFromArrByProp } = require("../../_utils");
+const { splitArrBy, findObjFromArrByProp } = require("../../_utils");
 
 const { specId } = process.env;
 const { ARTICLES, ADD_ARTICLE } = _.getActionTypes();
@@ -29,38 +29,23 @@ module.exports = class BotArticles {
   }
 ///END OF CONSTRUCTOR
 
-  _getAndCashArticleInlineKbParams (article, userId, isFav, isSpec) {
-    const articleId = article._id.toString();  //converting from ObjectId()
-    //it returns UserCash instance
-    const userIdCash = this.usersCash.get(userId);
-    const params = {
-      link: article.link,
-      articleId,
-      isFav,
-      isSpec
-    };
-
-    if (userIdCash) {
-      userIdCash.cashArticleData(articleId, params);
-      return params;
-    }
-
-    console.error(`the cash under id: ${ userId } is not found at _getAndCashArticleInlineKbParams...`);
-    return params;
-  }
-
-  _getInlineKeyboardData (userId, articleId) {
+  _getInlineKeyboardMap (userId, articleId) {
     const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
-      const inlineKb = userIdCash.getInlineKbMap(articleId) || null;
-      if (!inlineKb) {
-        console.error(`inline keyboard data is not found for the message with article id: ${ articleId }...`);
+      const inlineKbMap = userIdCash.getArticleInlineKBParams(articleId);
+      if (inlineKbMap) {
+        return inlineKbMap;
       }
-      return inlineKb; //returns Map or null
+      else {
+        console.error(`inline keyboard data is not found for the message with article id: ${ articleId }...`);
+        return null;
+      }
+       //returns Map or null
     }
-
-    console.error(`userIdCash is not found with user id: ${ userId } at _getInlineKeyboardData...`);
-    return null;
+    else {
+      console.error(`userIdCash is not found with user id: ${ userId } at _getInlineKeyboardMap...`);
+      return null;
+    }
   }
 
   _getUserADraft (userId) {
@@ -201,8 +186,8 @@ module.exports = class BotArticles {
               }, true);
             }
             catch(e) {
-              console.error(`error at _cleanAllMsgCash with chat_id: ${ chat_id }, message_id: ${ message_id }`);
-              console.error("error message:", e.message);
+              console.error(`Error at _cleanAllMsgCash with chat_id: ${ chat_id }, message_id: ${ message_id }`);
+              console.error("Error message:", e.message);
             }
           }
           else {
@@ -242,7 +227,7 @@ module.exports = class BotArticles {
 
   async _useCashedInlineKb (articleId, chat_id, message_id, userId, params={}) {
     //getting cashed data for creating the inline_keyboard of a particular message with the Article
-    const auxData = this._getInlineKeyboardData(userId, articleId);
+    const auxData = this._getInlineKeyboardMap(userId, articleId);
 
     if (auxData) {
       await this.botHandler.editMessageReplyMarkup({
@@ -258,6 +243,47 @@ module.exports = class BotArticles {
     else {
       console.error(`inline keyboard data for the message with the article id is not found for user id: ${ userId }, 
       and article id: ${ articleId }`);
+    }
+  }
+
+  async _sendArticle (chat_id, article, params) {
+    if (article && article._id.toString().length) {
+      const articleId = article._id.toString();  //converting from ObjectId()
+      const { userId, isSpec, isFav } = params;
+
+      const articleData = {
+        link: article.link,
+        articleId,
+        isFav,
+        isSpec
+      };
+      //it returns UserCash instance
+      const userIdCash = this.usersCash.get(userId);
+      if (userIdCash) {
+        userIdCash.cashArticleInlineKBParams(articleId, articleData);
+
+        this.botHandler.sendArticle(chat_id, article,{
+          reply_markup: {
+            inline_keyboard: _.get_inline_keyboard_articles({
+              ...articleData,
+            }),
+          }
+        })
+            .then(msgRes => {
+              if (msgRes && msgRes.chat_id && msgRes.message_id) {
+                this._cashOrCleanMsg(userId, msgRes);
+              }
+              else {
+                console.error(`received null from the sent message at _returnToMainKeyboard... `);
+              }
+            });
+      }
+      else {
+        console.error(`userIdCash is not found for userId: ${ userId }`);
+      }
+    }
+    else {
+      console.error(`incorrect article data received: ${ article }`);
     }
   }
 
@@ -338,38 +364,31 @@ module.exports = class BotArticles {
           //cleaning all regular messages cashed...
           await this._cleanAllMsgCash(userId);
 
-          const user = await this.dbHandler.getDocumentByProp(
+          const favorites = await this.dbHandler.getDocumentByProp(
               "User",
               {
                 userId
-              });
+              })
+              .then(doc => doc.favorites);
 
-          const { favorites } = user;
+          log(favorites, "favorites: ");
 
           if (favorites.length) {
             for (const articleId of favorites) {
               const article = await this.dbHandler.getDocumentByProp("Article", {
-                _id: articleId
+                _id: articleId,
               });
 
-              //isFav is true
-              const params = this._getAndCashArticleInlineKbParams(article, userId, true, isSpec);
-
-              this.botHandler.sendArticle(chat_id, article,{
-                reply_markup: {
-                  inline_keyboard: _.get_inline_keyboard_articles({
-                    ...params,
-                  }),
-                }
-              })
-                  .then(msgRes => {
-                    if (msgRes && msgRes.chat_id && msgRes.message_id) {
-                      this._cashOrCleanMsg(userId, msgRes);
-                    }
-                    else {
-                      console.error(`received null from the sent message at _returnToMainKeyboard... `);
-                    }
-                  });
+              if (article && article._id) {
+                this._sendArticle(chat_id, article, {
+                  userId,
+                  isSpec,
+                  isFav: true
+                });
+              }
+              else {
+                console.error(`could not find the article with id: ${ articleId } at [mainMenu.favorite]`);
+              }
             }
           }
           else {
@@ -524,21 +543,11 @@ module.exports = class BotArticles {
           if (collectionArticles.length) {
             for (const article of collectionArticles) {
               const isFav = userFavorites.includes(article._id);
-              const params = this._getAndCashArticleInlineKbParams(article, userId, isFav, isSpec);
-
-              this.botHandler.sendArticle(chat_id, article, {
-                reply_markup: {
-                  inline_keyboard: _.get_inline_keyboard_articles({
-                    ...params,
-                  }),
-                }
-              })
-                  .then((msgRes) => {
-                    this._cashOrCleanMsg(userId, {
-                      chat_id: msgRes.chat_id,
-                      message_id: msgRes.message_id
-                    });
-                  });
+              this._sendArticle(chat_id, article, {
+                userId,
+                isSpec,
+                isFav
+              });
             }
           }
           else {
@@ -644,7 +653,7 @@ module.exports = class BotArticles {
               //TODO: validation of articleId
               if (!user.favorites.includes(articleId)) {
                 user.favorites.push(articleId);
-                await user.save()
+                user.save()
                     .then(() => this.botHandler._answerCallbackQuery(
                         query.id,
                         `Статья сохранена в Избранных...`
@@ -691,21 +700,17 @@ module.exports = class BotArticles {
         [ARTICLES.ARTICLE_DELETE]: async () => {
           try {
             if (isConfirmed) {
-              await this.dbHandler.deleteArticleById(articleId)
+              await this.dbHandler.deleteArticleById(userId, articleId)
                   .then(() => {
-                    if (userIdCash) {
-                      this._cashOrCleanMsg(userId, {
-                        chat_id,
-                        message_id
-                      }, true);
-                    }
-                    else {
-                      console.error(`no cash for userId: ${ userId } found...`);
-                    }
+                    log(`deleting inlineKBParams of aricleId: ${ articleId }`);
+                    userIdCash.deleteArticleInlineKBParams(articleId);
+                    //deleting message with article
+                    this._cashOrCleanMsg(userId, {
+                      chat_id,
+                      message_id
+                    }, true);
 
-                    setTimeout(async () => {
-                      await this.botHandler._answerCallbackQuery(query.id, `Ресурс удален...`);
-                    }, 500);
+                    this.botHandler._answerCallbackQuery(query.id, `Ресурс удален...`);
                   });
             }
             else {

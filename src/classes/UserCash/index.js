@@ -1,4 +1,3 @@
-const { findObjFromArrByProp } = require("../../_utils");
 const _ = require("../../config");
 const ArticleDraft = require("../ArticleDraft");
 
@@ -14,9 +13,33 @@ module.exports = class UserCash {
     }
   }
 
-  cashArticleData (articleId, params) {
+  cashArticleInlineKBParams (articleId, params) {
     this.articlesInlineKBParams.set(articleId, params);
   }
+
+  getArticleInlineKBParams (articleId) {
+    if (this.articlesInlineKBParams.has(articleId)) {
+      return this.articlesInlineKBParams.get(articleId);
+    }
+    else {
+      console.error(`the following article id: ${ articleId } is not found in 
+      articlesInlineKBParams at getArticleData...`);
+      return null;
+    }
+  }
+
+  deleteArticleInlineKBParams (articleId) {
+    if (this.articlesInlineKBParams.has(articleId)) {
+      this.articlesInlineKBParams.delete(articleId);
+      return articleId;
+    }
+    else {
+      console.error(`the following article id: ${ articleId } is not found in 
+      articlesInlineKBParams at getArticleData...`);
+      return null;
+    }
+  }
+
 
   cashOrCleanKbMsg (kbMsgData = null) {
     if (kbMsgData && kbMsgData.chat_id && kbMsgData.message_id) {
@@ -32,6 +55,10 @@ module.exports = class UserCash {
     }
   }
 
+  getKbMsgCash () {
+    return this.msgCash.kb_msg;
+  }
+
   cashOrCleanInKbMsg (inKBMsgData = null) {
     if (inKBMsgData && inKBMsgData.chat_id && inKBMsgData.message_id) {
       const { chat_id, message_id } = inKBMsgData;
@@ -44,13 +71,19 @@ module.exports = class UserCash {
     }
   }
 
+  getInKbMsgCash () {
+    return this.msgCash.inline_kb_msg;
+  }
+
   cashOrCleanMsg(msgData, toClean = false) {
     if (msgData && msgData.chat_id && msgData.message_id) {
       const { chat_id, message_id } = msgData;
+
       //making unique key for the map: `${msgData.chat_id}_${msgData.message_id}`
       const mapKey = _.getKeyFromMsgData(msgData);
 
       if (toClean) {
+        log(message_id, "message_id cleaning at cashOrCleanMsg: ");
         if (this.msgCash.msg_cash.has(mapKey)) {
           this.msgCash.msg_cash.delete(mapKey);
         }
@@ -60,6 +93,7 @@ module.exports = class UserCash {
         }
       }
       else {
+        log(message_id, "message_id saving at cashOrCleanMsg: ");
         this.msgCash.msg_cash.set(mapKey, msgData);
       }
     }
@@ -68,32 +102,20 @@ module.exports = class UserCash {
     }
   }
 
+  getMsgCash() {
+    return Array.from(this.msgCash.msg_cash.values());
+  }
+
   cleanAllMsgCash() {
     if (this.msgCash.msg_cash.size) {
       this.msgCash.msg_cash.clear();
     }
   }
 
-  getKbMsgCash () {
-    return this.msgCash.kb_msg;
-  }
-
-  getInKbMsgCash () {
-    return this.msgCash.inline_kb_msg;
-  }
-
-  getMsgCash() {
-    return Array.from(this.msgCash.msg_cash.values());
-  }
-
   hasMsgInCash(msgData) {
     if (msgData.chat_id && msgData.message_id) {
       return this.msgCash.msg_cash.has(msgData);
     }
-  }
-
-  getInlineKbMap(articleId) {
-    return this.articlesInlineKBParams.get(articleId);
   }
 
   getArticleDraft() {

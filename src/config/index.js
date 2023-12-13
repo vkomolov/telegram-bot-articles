@@ -89,8 +89,6 @@ module.exports.getMenuKeys = function () {
 
 module.exports.getKeyFromMsgData = function (msgData) {
   if (msgData.chat_id && msgData.message_id) {
-    log(`${msgData.chat_id}_${msgData.message_id}`, "outcome key at config.getKeyFromMsgData: ");
-
     return `${msgData.chat_id}_${msgData.message_id}`;
   }
   else {
@@ -208,9 +206,6 @@ module.exports.get_inline_keyboard_topics = function (topicsDataArr, splitBy = 2
         })
       }
   );
-
-  const topicsSplitted = splitArrBy(topicsInlineDataArr, splitBy);
-  log(topicsSplitted, "keyboard map from splitArrBy: ");
 
   return splitArrBy(topicsInlineDataArr, splitBy);
 };

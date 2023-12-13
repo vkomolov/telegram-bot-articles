@@ -27,7 +27,6 @@ module.exports = class ArticleDraft {
 
   getEmptyProps (separ = null) {
     let emptyProps = getEmptyKeys(this.projectArticleData);
-    const { addArticleMenu } = _.getMenuKeys();
     const emptyPropsArr = emptyProps.map(prop => this.getMenuKey(prop));
 
     if (separ && separ.length) {

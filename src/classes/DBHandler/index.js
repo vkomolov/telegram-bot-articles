@@ -152,18 +152,24 @@ module.exports = class DBHandler {
     catch(e) {
       console.error('error at checkUserAndSave: ', e)
     }
-
-
-
-
   }
 
   async saveNewArticle (articleData) {
     return await new this.Article(articleData).save();
   }
 
-  async deleteArticleById (articleId) {
-    await this.Article.deleteOne({ _id: articleId });
+  async deleteArticleById (userId, articleId) {
+    try {
+      await Promise.all([
+        this.User.updateMany({}, { $pull: { favorites: articleId } }),
+        this.Article.deleteOne({ _id: articleId })
+      ]);
+
+      log("article delete complete.. deleteArticleById");
+    }
+    catch (e) {
+      console.error(`error at deleteArticleById with userId: ${ userId }, articleId: ${ articleId }`);
+    }
   }
 };
 

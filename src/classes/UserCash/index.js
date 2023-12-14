@@ -40,18 +40,22 @@ module.exports = class UserCash {
     }
   }
 
-
   cashOrCleanKbMsg (kbMsgData = null) {
     if (kbMsgData && kbMsgData.chat_id && kbMsgData.message_id) {
       const { chat_id, message_id } = kbMsgData;
+      log(this.getKbMsgCash(), "previous KbMsgCash at UserCash.cashOrCleanKbMsg: ");
+      log(`cashing new inline KbMsgCash: ${message_id}`);
       //re-writing new message with keyboard data
       Object.assign(this.msgCash.kb_msg, {
         chat_id,
         message_id
       });
+
+      log(this.getKbMsgCash(), "new KbMsgCash at UserCash.getKbMsgCash: ");
     } else {
       //cleaning kb_msg if no arguments
       this.msgCash.kb_msg = {};
+      log(this.msgCash.kb_msg, `this.msgCash.kb_msg =:`);
     }
   }
 
@@ -62,12 +66,18 @@ module.exports = class UserCash {
   cashOrCleanInKbMsg (inKBMsgData = null) {
     if (inKBMsgData && inKBMsgData.chat_id && inKBMsgData.message_id) {
       const { chat_id, message_id } = inKBMsgData;
+      log(this.getInKbMsgCash(), "previous KbMsgCash at UserCash.cashOrCleanInKbMsg: ");
+      log(`cashing new inline KbMsgCash: ${message_id}`);
+
       Object.assign(this.msgCash.inline_kb_msg, {
-        chat_id,
-        message_id
+        ...inKBMsgData,
       });
+
+      log(this.getInKbMsgCash(), "new KbMsgCash at UserCash.cashOrCleanInKbMsg: ");
+
     } else {
       this.msgCash.inline_kb_msg = {};
+      log(this.msgCash.inline_kb_msg, `this.msgCash.inline_kb_msg =:`);
     }
   }
 
@@ -85,7 +95,11 @@ module.exports = class UserCash {
       if (toClean) {
         log(message_id, "message_id cleaning at cashOrCleanMsg: ");
         if (this.msgCash.msg_cash.has(mapKey)) {
+          log(this.msgCash.msg_cash, `this.msgCash.msg_cash before delete : ${message_id}`);
           this.msgCash.msg_cash.delete(mapKey);
+
+          log(this.msgCash.msg_cash.values(), `this.msgCash.msg_cash.values() after delete from msgCash : 
+          ${mapKey} with ${message_id}`);
         }
         else {
           console.error(`the message data with chat_id: ${ chat_id }, message_id: ${ message_id } 
@@ -95,6 +109,7 @@ module.exports = class UserCash {
       else {
         log(message_id, "message_id saving at cashOrCleanMsg: ");
         this.msgCash.msg_cash.set(mapKey, msgData);
+        log(this.msgCash.msg_cash, `this.msgCash.msg_cash after cashing: ${mapKey} with ${msgData.message_id}`);
       }
     }
     else {

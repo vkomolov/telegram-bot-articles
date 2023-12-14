@@ -69,6 +69,9 @@ module.exports = class BotArticles {
 
       if (prevKbMsgCash.chat_id && prevKbMsgCash.message_id) {
         //cashing for future delete with _cleanAllMsgCash
+        log(`cashing message with main menu keyboard and welcome
+         message ${prevKbMsgCash.message_id} for cleaning...`);
+
         userIdCash.cashOrCleanMsg({
           chat_id: prevKbMsgCash.chat_id,
           message_id: prevKbMsgCash.message_id
@@ -77,10 +80,12 @@ module.exports = class BotArticles {
 
       if (msgData && msgData.chat_id && msgData.message_id) {
         //updating with new keyboard message data
+        log(`cashing new message data ${msgData.message_id} with topics keyboard`);
         userIdCash.cashOrCleanKbMsg({ ...msgData });
       }
       else {
         //cleaning kbMsgCash
+        log("cleaning all message data with keyboard...");
         userIdCash.cashOrCleanKbMsg();
       }
     }
@@ -98,6 +103,8 @@ module.exports = class BotArticles {
       };
 
       if (prevInKbMsgCash.chat_id && prevInKbMsgCash.message_id) {
+        log(`cashing previous msg data with inline keyboard: ${prevInKbMsgCash.message_id} 
+        to msgCash at _cashOrCleanInKbMsg`);
         //cashing for future delete with _cleanAllMsgCash
         userIdCash.cashOrCleanMsg({
           chat_id: prevInKbMsgCash.chat_id,
@@ -107,11 +114,14 @@ module.exports = class BotArticles {
 
       if (msgData && msgData.chat_id && msgData.message_id) {
         //updating with new keyboard message data
+        log(`cashing new msg data with inline keyboard: ${msgData.message_id} at _cashOrCleanInKbMsg`);
         userIdCash.cashOrCleanInKbMsg({ ...msgData });
       }
       else {
         //cleaning inKbMsgCash when no arguments...
+        log(`cleaning inKB message... kbCash before: `);
         userIdCash.cashOrCleanInKbMsg();
+        log(`cleaning inKB message...`);
       }
     }
     else {
@@ -141,7 +151,9 @@ module.exports = class BotArticles {
         const { chat_id, message_id } = msgData;
         if (chat_id && message_id) {
           try {
+            log(`deleting message with botHandler: ${message_id} at _cashOrCleanMsg...`);
             await this.botHandler._deleteMessage(chat_id, message_id);
+            log(`cleaning message_id ${message_id} in msgCash at _cashOrCleanMsg...`);
             userIdCash.cashOrCleanMsg(msgData, toClean);
           }
           catch (e) {
@@ -154,7 +166,9 @@ module.exports = class BotArticles {
         }
       }
       else {
+        log(`cashing msg ${msgData.message_id} at _cashOrCleanMsg...`);
         userIdCash.cashOrCleanMsg(msgData, toClean);
+        log(userIdCash.getMsgCash(), `msgCash after cashing msg ${msgData.message_id}: `);
       }
     }
     else {
@@ -169,6 +183,7 @@ module.exports = class BotArticles {
     if (userIdCash) {
       if (isAllKeyboardsIncluded) {
         //cleaning msg data of keyboard and inline_keyboard
+        log('cleaning all keyboards...');
         this._cashOrCleanKbMsg(userId);
         this._cashOrCleanInKbMsg(userId);
       }
@@ -179,15 +194,29 @@ module.exports = class BotArticles {
         for (const { chat_id, message_id } of msgCashArr) {
           if (chat_id && message_id) {
             try {
+              log(`cleaning message_id: ${message_id} by botHandler at _cleanAllMsgCash... `);
               await this.botHandler._deleteMessage(chat_id, message_id);
+              log(`cleaning msg ${message_id} in msgCash at _cleanAllMsgCash... `);
               userIdCash.cashOrCleanMsg({
                 chat_id,
                 message_id
               }, true);
+
+              log(userIdCash.getMsgCash(), `msgCash after cleaning ${message_id}:`);
             }
             catch(e) {
               console.error(`Error at _cleanAllMsgCash with chat_id: ${ chat_id }, message_id: ${ message_id }`);
               console.error("Error message:", e.message);
+              /**
+               * if ETELEGRAM: 400 Bad Request: message to delete not found, then to clean the msg data, which
+               * was not found in Telegram and deleted before...
+               */
+              if (e.message.includes("message to delete not found")) {
+                userIdCash.cashOrCleanMsg({
+                  chat_id,
+                  message_id
+                }, true);
+              }
             }
           }
           else {
@@ -213,9 +242,11 @@ module.exports = class BotArticles {
         .then(msgRes => {
           const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
           if (sentMsgRes) {
+            log(`cashing new keyboard menu... with ${sentMsgRes.message_id}`);
             this._cashOrCleanKbMsg(userId, sentMsgRes);
 
             setTimeout(() => {
+              log(`cleaning all msgCash...`);
               this._cleanAllMsgCash(userId);
             }, 300);
           }
@@ -304,8 +335,13 @@ module.exports = class BotArticles {
                 const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                 if (sentMsgRes) {
+                  //re-writing new message data with the topics menu keyboard
+                  log("cashing message data with topics keyboard...");
                   this._cashOrCleanKbMsg(userId, sentMsgRes);
+                  //
+
                   setTimeout(() => {
+                    log(`cleaning all msg cash...`);
                     this._cleanAllMsgCash(userId);
                   }, 300);
                 }
@@ -338,9 +374,11 @@ module.exports = class BotArticles {
                   const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
+                    log(`cashing new inline keyboard msg data...`);
                     this._cashOrCleanInKbMsg(userId, sentMsgRes);
 
                     setTimeout(() => {
+                      log(`cleaning all msg cash...`);
                       this._cleanAllMsgCash(userId);
                     }, 300);
                   }
@@ -360,8 +398,10 @@ module.exports = class BotArticles {
       [mainMenu.favorite]: async () => {
         try {
           //cleaning message data with inline_keyboard...
+          log(`cleaning inline keyboard message data...`);
           this._cashOrCleanInKbMsg(userId);
           //cleaning all regular messages cashed...
+          log(`cleaning all msg cash...`);
           await this._cleanAllMsgCash(userId);
 
           const favorites = await this.dbHandler.getDocumentByProp(
@@ -397,9 +437,11 @@ module.exports = class BotArticles {
                   const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                   if (sentMsgRes) {
+                    log(`cashing new inline kb message: ${sentMsgRes.message_id}`);
                     this._cashOrCleanInKbMsg(userId, sentMsgRes);
 
                     setTimeout(() => {
+                      log(`cleaning all msgCash...`);
                       this._cleanAllMsgCash(userId);
                     }, 300);
                   }
@@ -472,6 +514,7 @@ module.exports = class BotArticles {
           this.usersCash.set(userId, userIdCashNew);
 
           //cashing message 'start'
+          log(`cashing msg data with ${message_id}, value: ${msg.text}`);
           await this._cashOrCleanMsg(userId, { chat_id, message_id });
 
           await this.botHandler.welcomeUser({ chat_id, user, userLastVisit }, {
@@ -484,9 +527,12 @@ module.exports = class BotArticles {
                 const sentMsgRes = this.botHandler.getMsgResultData(msgRes);
 
                 if (sentMsgRes) {
+                  //cashing the message data with welcome message and the main menu keyboard
+                  log(`cashing main keyboard message data for welcome message: ${sentMsgRes.message_id}`);
                   this._cashOrCleanKbMsg(userId, sentMsgRes);
 
                   setTimeout(() => {
+                    log("cleaning with message 'start'");
                     this._cleanAllMsgCash(userId);
                   }, 300);
                 }
@@ -503,8 +549,12 @@ module.exports = class BotArticles {
         //resetting activeProp if entering the value to the property of aDraft is canceled
         this._activePropReset(userId);
         //resetting previous messages with inline keyboards
+        log(`handling regular key, cleaning previous inline keyboard message...`);
+
         this._cashOrCleanInKbMsg(userId);
         //cashing incoming message for the future cleaning
+
+        log(`cashing msg data ${message_id} with text: ${msg.text}`);
         this._cashOrCleanMsg(userId, { chat_id, message_id });
 
         await this._handleRegularKey(chat_id, message_id, userId, msg.text);
@@ -630,6 +680,7 @@ module.exports = class BotArticles {
       const chat_id = query.message.chat.id;
       const message_id = query.message.message_id;
       const userIdCash = this.usersCash.get(userId);
+      const msgText = query.message.text;
 
       const data = JSON.parse(query.data);
       const actionType = data?.tp || null;
@@ -863,8 +914,8 @@ module.exports = class BotArticles {
             if (userIdCash) {
               const aDraft = userIdCash.getArticleDraft();
               const inKBCash = userIdCash.getInKbMsgCash();
-              const auxChatId = inKBCash?.chat_id || chat_id;
-              const auxMsgId = inKBCash?.message_id || message_id;
+              const auxChatId = inKBCash?.chat_id;
+              const auxMsgId = inKBCash?.message_id;
 
               if (aDraft && aDraft.getEmptyProps().length) {
                 await this.botHandler.checkAndSendMessageWithEmptyADraftProps(auxChatId, auxMsgId, aDraft);
@@ -874,10 +925,13 @@ module.exports = class BotArticles {
 
                 await this.dbHandler.saveNewArticle(aDraftData)
                     .then(() => {
+                      log(`cleaning article draft after savine new article...`);
                       userIdCash.clearArticleDraft();
                       //inline add article menu will be cashed then cleaned later
+                      log(`cashing msg data: ${message_id} with text: ${msgText}`);
                       this._cashOrCleanMsg(userId, { chat_id, message_id });
                       //returning to main keyboard menu
+                      log(`returning to main keyboard...`);
                       this._returnToMainKeyboard(chat_id, userId);
                       this.botHandler._answerCallbackQuery(
                           query.id,

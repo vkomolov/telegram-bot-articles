@@ -38,6 +38,10 @@ const menuKeys = {
   }
 };
 
+/**
+ * @description: It returns the article draft of the new resource with the default property values
+ * @returns {{name: null, link: null, description: null, typeId: null}}
+ */
 module.exports.getDefaultArticleData = function () {
   return {
     name: null,
@@ -47,6 +51,10 @@ module.exports.getDefaultArticleData = function () {
   }
 };
 
+/**
+ * @description: It return the menu keys...
+ * @returns {{mainMenu: {articles: *, favorite: *, articleAdd: *}, addArticleMenu: {cancel: *, submit: *, name: *, link: *, description: *, typeId: *}, topicsMenu: {back: *}}}
+ */
 module.exports.getMenuKeys = function () {
   return menuKeys;
 };

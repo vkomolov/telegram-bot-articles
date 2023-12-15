@@ -16,6 +16,11 @@ module.exports = class DBHandler {
     this.Topic = Topic;
   }
 
+  /**
+   * @description: It initiates the connection to MongoDB
+   * @param {ConnectOptions} options:
+   * @returns {Promise<void>}
+   */
   async connectDb (options) {
     try {
       this._db = await mongoose.connect(baseUrl, options);
@@ -72,13 +77,18 @@ module.exports = class DBHandler {
     }
   }
 
+  /**
+   * @description: It returns the document from the MongoDB by its target property/ies
+   * @param {string} modelName: "Article" etc...
+   * @param {Object} targetProp: target properties of the model document
+   * @returns {Promise<null|*>}
+   */
   async getDocumentByProp (modelName, targetProp = {}) {
     try {
       const mName = modelName[0].toUpperCase() + modelName.toLowerCase().slice(1);
       const ModelName = this[mName] || null;
 
       if (ModelName) {
-
         //any Model of this
         return await ModelName.findOne({...targetProp}).exec();
       }
@@ -154,10 +164,21 @@ module.exports = class DBHandler {
     }
   }
 
+  /**
+   * @description It saves a new article to MongoDB
+   * @param {Object} articleData: the data of the new article
+   * @returns {{Promise}}
+   */
   async saveNewArticle (articleData) {
     return await new this.Article(articleData).save();
   }
 
+  /**
+   * @description It deletes the article from the MongoDB collection of the Article Model
+   * @param {string} userId: Telegram user ID
+   * @param {string} articleId
+   * @returns {Promise<void>}
+   */
   async deleteArticleById (userId, articleId) {
     try {
       await Promise.all([

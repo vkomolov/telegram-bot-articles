@@ -29,6 +29,13 @@ module.exports = class BotArticles {
   }
 ///END OF CONSTRUCTOR
 
+  /**
+   * @description: It returns the cashed inline keyboard data of the particular article
+   * @param {String} userId: Telegram Id of the user
+   * @param {String} articleId: article id of the internet resource
+   * @returns {null|[]}
+   * @private
+   */
   _getInlineKeyboardMap (userId, articleId) {
     const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
@@ -48,6 +55,13 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It returns the Article Draft with the empty properties, which will be filled by the user on adding new Article
+   * to the DB...
+   * @param {string} userId: Telegram ID of the user
+   * @returns {null|Object}
+   * @private
+   */
   _getUserADraft (userId) {
     const userIdCash = this.usersCash.get(userId);
 
@@ -60,6 +74,15 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It cashes or cleans the message data with the regular keyboard;
+   * @param {string} userId: Telegram user ID
+   * @param {Object} msgData: the message data with chat_id and message_id of the message with the regular
+   * keyboard. If msgData is given, then it cashes new message data, cleaning the previous message with the
+   * regular keyboard.
+   * If not msgData given, then it cleans the current cash of the message with the keyboard;
+   * @private
+   */
   _cashOrCleanKbMsg (userId, msgData = null) {
     const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
@@ -89,6 +112,15 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It cashes or cleans the message data with the inline keyboard;
+   * @param {string} userId: Telegram user ID
+   * @param {Object} msgData: the message data with chat_id and message_id of the message with the inline
+   * keyboard. If msgData is given, then it cashes the new message data, cleaning the previous message with the
+   * inline keyboard.
+   * If not msgData given, then it cleans the current cash of the message with the inline keyboard;
+   * @private
+   */
   _cashOrCleanInKbMsg (userId, msgData = null) {
     const userIdCash = this.usersCash.get(userId);
 
@@ -119,6 +151,13 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It cleans the active property to null. It is used to handle the input of the user, when
+   * he creates a new article draft. Each property of the article draft is activated, when the bot is waiting
+   * for the value from the user`s message to save to the active property of the article draft...
+   * @param {string} userId: Telegram user ID
+   * @private
+   */
   _activePropReset (userId) {
     const userIdCash = this.usersCash.get(userId);
     if (userIdCash) {
@@ -133,6 +172,14 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It cashes or cleans the data of the sent/received messages...
+   * @param {string} userId: Telegram user ID
+   * @param {Object} msgData: the message data with chat_id and message_id of the message to cash or clean
+   * @param {boolean} toClean: if true then it cleans the message data of the particular message
+   * @returns {Promise<void>}
+   * @private
+   */
   async _cashOrCleanMsg (userId, msgData, toClean =  false) {
     const userIdCash = this.usersCash.get(userId);
 
@@ -162,7 +209,14 @@ module.exports = class BotArticles {
     }
   }
 
-  //TODO: error happens deleting msg with chat_id, message_id = undefined "not found to delete"
+  /**
+   * @description It cleans all the cashed data of the messages. It is used for cleaning the sent/received
+   * messages from the cash and Telegram
+   * @param {string} userId: Telegram user ID
+   * @param {boolean} isAllKeyboardsIncluded: if true, it also cleans the cash of the inline and regular keyboards
+   * @returns {Promise<void>}
+   * @private
+   */
   async _cleanAllMsgCash (userId, isAllKeyboardsIncluded=false) {
     const userIdCash = this.usersCash.get(userId);
 
@@ -211,6 +265,13 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description it sends the greetings message with the regular keyboard of the main menu
+   * @param {string} chat_id: Telegram chat_id
+   * @param {string} userId: Telegram user ID
+   * @returns {Promise<void>}
+   * @private
+   */
   async _returnToMainKeyboard (chat_id, userId) {
     const isSpec = userId === specId.toString();
 
@@ -235,6 +296,17 @@ module.exports = class BotArticles {
         });
   }
 
+  /**
+   * @description It edits the ReplyMarkup of the message with the particular inline keyboard of the article
+   * @param {string} articleId: article id of the internet resource. The articles are cashed separately from
+   * the regular messages...
+   * @param {string} chat_id: Telegram chat_id
+   * @param {string} message_id: Telegram message_id
+   * @param {string} userId: Telegram user ID
+   * @param {Object} params: additional parameters, like 'isFav'...
+   * @returns {Promise<void>}
+   * @private
+   */
   async _useCashedInlineKb (articleId, chat_id, message_id, userId, params={}) {
     //getting cashed data for creating the inline_keyboard of a particular message with the Article
     const auxData = this._getInlineKeyboardMap(userId, articleId);
@@ -256,6 +328,14 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It sends the message with the details of the particular article and its inline keyboard data
+   * @param {string} chat_id: Telegram chat_id
+   * @param {Object} article: It contains the data of the particular internet resource
+   * @param {Object} params: additional parameters, like 'userId, isSpec, isFav'...
+   * @returns {Promise<void>}
+   * @private
+   */
   async _sendArticle (chat_id, article, params) {
     if (article && article._id.toString().length) {
       const articleId = article._id.toString();  //converting from ObjectId()
@@ -297,6 +377,15 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It handles the messages with the particular text (msgText)
+   * @param {string} chat_id: Telegram chat_id
+   * @param {string} message_id: Telegram message_id
+   * @param {string} userId: Telegram user ID
+   * @param {string} msgText: received
+   * @returns {Promise<void>}
+   * @private
+   */
   async _handleRegularKey(chat_id, message_id, userId, msgText) {
     const { mainMenu, topicsMenu } = _.getRegularKeyboardObj();
     const isSpec = userId.toString() === specId.toString();
@@ -439,6 +528,12 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It handles the messages with the particular text (msg)
+   * @param {Object} msg: received Telegram message
+   * @returns {Promise<void>}
+   * @private
+   */
   async _handleMessage(msg) {
     try {
       const message_id = msg.message_id;
@@ -475,8 +570,8 @@ module.exports = class BotArticles {
           if (userIdCash) {
             await this._cleanAllMsgCash(userId, true);
           }
-          //creating new cash fot userId
 
+          //creating new cash fot userId
           const userIdCashNew = new UserCash(userId);
 
           //cashing data for userId
@@ -635,6 +730,12 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It handles the queries from the inline keyboards, chosen by the user;
+   * @param {Object} query: Telegram query received...
+   * @returns {Promise<void>}
+   * @private
+   */
   async _handleQuery(query) {
     try {
       const userId = query.from.id.toString();
@@ -945,6 +1046,11 @@ module.exports = class BotArticles {
     }
   }
 
+  /**
+   * @description It initiates the connection to MongoDb and the connection to Telegram bot API
+   * Also it cashes the topics menu, which is taken dynamically from the list of the topics in the DB
+   * @returns {Promise<void>}
+   */
   async start() {
     try {
       //initiating the bot and the database connection

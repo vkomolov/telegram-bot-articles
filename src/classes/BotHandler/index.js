@@ -1,6 +1,6 @@
 const TelegramBot = require("node-telegram-bot-api");
 const _ = require("../../config");
-const { isValidImageLink } = require("../../_utils");
+const { isValidImageLink, phraseTime } = require("../../_utils");
 
 const { token, specId } = process.env;
 const { parser } = require('html-metadata-parser');
@@ -238,10 +238,13 @@ module.exports = class BotHandler {
         ? `Поскольку Вы владелец, Вам даны дополнительные функции *добавления*, *удаления* и *редакции ресурсов* в списке`
         : ``;
 
+    const timeDiff = ((Date.now() - userLastVisit)).toFixed(1);
+    const timeDiffText = phraseTime(timeDiff);
+
     const hello = userLastVisit
         ? `С возвращением, *${ userName }*!
         \nЯзык Вашей системы: *${ dictBotHandler[language_code] }*
-        \nВы отсутствовали ${ ((Date.now() - userLastVisit) / 1000 / 60).toFixed(1) } мин.
+        \nВы отсутствовали ${ timeDiffText }.
         \n${ specMsg }`
         : `Похоже, *${ userName }*, Вы у нас впервые!!! \nДобро пожаловать!!!
         \nЯзык Вашей системы: *${ dictBotHandler[language_code] }*

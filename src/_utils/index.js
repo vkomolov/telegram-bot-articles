@@ -135,6 +135,67 @@ module.exports.isValidImageLink = async function (imageLink) {
   return false;
 };
 
+function formatTimeEnding(timeUnit = ["единица", "единицы", "единиц"]) {
+  return function(number) {
+    if (number % 100 >= 11 && number % 100 <= 19) {
+      return timeUnit[2];
+    } else if (number % 10 === 1) {
+      return timeUnit[0];
+    } else if (number % 10 >= 2 && number % 10 <= 4) {
+      return timeUnit[1];
+    } else {
+      return timeUnit[2];
+    }
+  };
+}
+
+module.exports.phraseTime = function (milliseconds) {
+  if (milliseconds && milliseconds > 0) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(days / 365);
+
+    const bySeconds = (s) => `${s} ${formatTimeEnding(['секунда', 'секунды', 'секунд'])(s)}`;
+    const byMinutes = (m) => `${m} ${formatTimeEnding(['минута', 'минуты', 'минут'])(m)}`;
+    const byHours = (h) => `${h} ${formatTimeEnding(['час', 'часа', 'часов'])(h)}`;
+    const byDays = (d) => `${d} ${formatTimeEnding(['день', 'дня', 'дней'])(d)}`;
+    const byWeeks = (w) => `${w} ${formatTimeEnding(['неделя', 'недели', 'недель'])(w)}`;
+    const byMonths = (m) => `${m} ${formatTimeEnding(['месяц', 'месяца', 'месяцев'])(m)}`;
+    const byYears = (y) => `${y} ${formatTimeEnding(['год', 'года', 'лет'])(y)}`;
+
+    if (years >= 1) {
+      return `${byYears(years)} ${byMonths(months % 12)} ${byWeeks(weeks % 4)} ${byDays(days % 7)} 
+      ${byHours(hours % 24)} ${byMinutes(minutes % 60)} и ${bySeconds(seconds % 60)}`;
+    }
+    else if (months >= 1) {
+      return `${byMonths(months)} ${byWeeks(weeks % 4)} ${byDays(days % 7)} ${byHours(hours % 24)} 
+      ${byMinutes(minutes % 60)} и ${bySeconds(seconds % 60)}`;
+    }
+    else if (weeks >= 1) {
+      return `${byWeeks(weeks)} ${byDays(days % 7)} ${byHours(hours % 24)} ${byMinutes(minutes % 60)} и 
+      ${bySeconds(seconds % 60)}`;
+    }
+    else if (days >= 1) {
+      return `${byDays(days)} ${byHours(hours % 24)} ${byMinutes(minutes % 60)} и ${bySeconds(seconds % 60)}`;
+    }
+    else if (hours >= 1) {
+      return `${byHours(hours)} ${byMinutes(minutes % 60)} и ${bySeconds(seconds % 60)}`;
+    }
+    else if (minutes >= 1) {
+      return `${byMinutes(minutes)} и ${bySeconds(seconds % 60)}`;
+    }
+    else {
+      return `Вы отсутствовали ${bySeconds(seconds)}`;
+    }
+  } else {
+    console.error(`not correct time given to phraseTime: ${milliseconds}`);
+  }
+};
+
 
 ///////////DEV
 function log(it, comments = "value: ") {

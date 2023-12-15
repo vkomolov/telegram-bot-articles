@@ -164,8 +164,6 @@ module.exports = class DBHandler {
         this.User.updateMany({}, { $pull: { favorites: articleId } }),
         this.Article.deleteOne({ _id: articleId })
       ]);
-
-      log("article delete complete.. deleteArticleById");
     }
     catch (e) {
       console.error(`error at deleteArticleById with userId: ${ userId }, articleId: ${ articleId }`);

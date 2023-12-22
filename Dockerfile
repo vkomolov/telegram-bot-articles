@@ -1,5 +1,5 @@
 # Use of the official image of Node.js
-FROM node:18
+FROM node:20
 
 # setting root folder in the container
 WORKDIR /app
